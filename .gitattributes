@@ -1,0 +1,4 @@
+# shell scripts must stay LF on every platform (bash breaks on CRLF)
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.yml text eol=lf

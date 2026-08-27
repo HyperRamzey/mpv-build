@@ -1,0 +1,28 @@
+# upstream source clones (synced by pull scripts / CI)
+/mpv/
+/libplacebo-src/
+
+# build + install outputs
+/build-*/
+/libplacebo-zn2/
+/libplacebo-zn3/
+/libplacebo-11700/
+/install-zn3/
+/install-zn2/
+/install-11700/
+
+# logs
+/logs/
+*.log
+
+# local test media/config leftovers
+/*.sofa
+/test-config/
+
+# local validation helpers (actionlint etc.)
+/tools/
+
+# one-off debug/diagnostic scripts
+/probe-*.sh
+/resume-*.sh
+/diag-placebo.sh

@@ -1,0 +1,682 @@
+---
+# ============================================================================
+# release.yml — GitHub Actions pipeline mirroring the LOCAL build flow 1:1
+#
+# Local orchestrator: G:\mpv-build\build-all.sh
+#   step 0  clean                    -> CI runners are always fresh (no-op)
+#   step 1  git pull ALL sources     -> job: sync-sources
+#   step 2  deps x3 (build-deps.sh)  -> job: deps   (matrix zn3/zn2/11700)
+#   step 3  libplacebo x3            -> job: deps   (same job, right after)
+#   step 4  FFmpeg x3                -> job: ffmpeg (matrix)
+#   step 5  mpv x3                   -> job: mpv    (matrix)
+#   step 6  verification             -> verify steps in ffmpeg/mpv jobs
+#
+# The SAME scripts are executed verbatim (build-deps.sh,
+# build-libplacebo-*.sh, ffmpeg build-*.sh, mpv build-*.sh, copydlls.sh,
+# smoke_test.sh). They hardcode /g/mpv-build, /g/ffmpeg-build,
+# /g/deps-build and /clang64/... paths, so the runner recreates that
+# layout:
+#   * the three repos are checked out under <workspace>\g\<repo>
+#   * `subst G: <workspace>\g`  =>  MSYS2 sees /g/mpv-build etc.
+#   * MSYS2 is installed to C:\msys64 so /clang64 resolves (as locally)
+#
+# CUDA: NOT installed. FFmpeg is configured with --enable-cuda-llvm:
+# configure compiles CUDA kernels with clang's NVPTX backend using
+# ffmpeg's own compat/cuda/cuda_runtime.h (-nocudainc -nocudalib
+# --cuda-device-only), so no toolkit headers/libs are required at build
+# time (verified against ffmpeg/configure: check_nvcc runs $nvcc=clang).
+# The CUDA_PATH/PATH exports in the ffmpeg scripts are kept verbatim and
+# are harmless no-ops when the directory is absent.
+#
+# Repository layout requirement (3 sibling repos under the SAME owner):
+#   mpv-build     <- this repo (workflow + mpv/libplacebo build scripts)
+#   ffmpeg-build  <- FFmpeg per-target build scripts
+#   deps-build    <- dependency framework (recipes, common.sh, patches)
+# See CI-SETUP.md next to this file for one-time push instructions.
+#
+# Caching (actions/cache, 10 GB/repo budget, LRU-evicted):
+#   src-<run>-<attempt>   all upstream clones: ~90 dep repos + mpv +
+#                         ffmpeg + libplacebo   (sync-sources -> all)
+#   dpfx-<target>-*       per-target deps prefix + .built-<target>
+#                         stamps                (deps -> ffmpeg/mpv)
+#   ffinst-<target>-*     per-target FFmpeg install (ffmpeg -> mpv)
+# Deps are stamp-cached exactly like locally: only repos whose git HEAD
+# moved since the cached build are rebuilt.
+#
+# Knobs (mirror build-all.sh env knobs):
+#   force_deps = true  -> rm stamps + FORCE=1 (rebuild every dependency)
+#   deps_lto   = false -> export DEPS_LTO=0 (default = common.sh: LTO on)
+#   CLEAN has no equivalent: every CI job starts from a fresh runner.
+#   JOBS: ninja/make -j14 is hardcoded in the mpv/ffmpeg scripts (1:1).
+# ============================================================================
+
+name: release
+
+"on":
+  workflow_dispatch:
+    inputs:
+      force_deps:
+        description: "Rebuild ALL dependencies (ignore stamp cache)"
+        type: boolean
+        default: false
+      deps_lto:
+        description: "Thin-LTO the dependency libs (local default: on)"
+        type: boolean
+        default: true
+      release_tag:
+        description: >-
+          Optional tag for the GitHub Release (e.g. v2026.07.11).
+          Empty = auto-created build-<UTC stamp> tag.
+        type: string
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  MSYSTEM: CLANG64
+  MPV_REPO: https://github.com/mpv-player/mpv.git
+  FFMPEG_REPO: https://github.com/FFmpeg/FFmpeg.git
+  PLACEBO_REPO: https://code.videolan.org/videolan/libplacebo.git
+  # unique per run+attempt: cache keys derived from it never collide
+  CACHE_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  # ==========================================================================
+  # Lint: bash -n + broken-continuation scan over every build script
+  # ==========================================================================
+  lint-scripts:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Check out mpv-build
+        uses: actions/checkout@v6
+        with:
+          path: g/mpv-build
+      - name: Check out deps-build
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/deps-build
+          path: g/deps-build
+      - name: Check out ffmpeg-build
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/ffmpeg-build
+          path: g/ffmpeg-build
+      - name: "Map G: drive"
+        shell: pwsh
+        run: |
+          subst G: "$env:GITHUB_WORKSPACE\g"
+          cmd /c dir G:\
+      - name: Syntax + continuation scan
+        shell: bash
+        run: bash /g/mpv-build/check-scripts.sh
+
+  # ==========================================================================
+  # build-all.sh STEP 1: git pull EVERYTHING (~90 dep repos + mpv + ffmpeg
+  # + libplacebo). Missing repos are cloned (pull-all.sh / sync_repo).
+  # ==========================================================================
+  sync-sources:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Check out mpv-build
+        uses: actions/checkout@v6
+        with:
+          path: g/mpv-build
+      - name: Check out deps-build
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/deps-build
+          path: g/deps-build
+      - name: Check out ffmpeg-build
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/ffmpeg-build
+          path: g/ffmpeg-build
+      - name: "Map G: drive (scripts use hardcoded /g/... paths)"
+        shell: pwsh
+        run: |
+          subst G: "$env:GITHUB_WORKSPACE\g"
+          cmd /c dir G:\
+      - name: Restore upstream source cache (incremental runs)
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/src
+            g/mpv-build/mpv
+            g/mpv-build/libplacebo-src
+            g/ffmpeg-build/ffmpeg
+          key: src-${{ env.CACHE_RUN }}
+          restore-keys: |
+            src-
+      - name: Pull all dependency sources (pull-all.sh)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # match local machine git config (autocrlf off, LF endings)
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+          bash /g/deps-build/pull-all.sh
+      - name: Pull/clone mpv, FFmpeg, libplacebo (step 1)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+          sync_repo() {
+            local dir="$1" url="$2"
+            if [[ -d "$dir/.git" ]]; then
+              git -C "$dir" pull --ff-only 2>/dev/null \
+                || echo "$(basename "$dir"): pull failed"
+            else
+              rm -rf "$dir"
+              git clone "$url" "$dir"
+            fi
+          }
+          sync_repo /g/mpv-build/mpv "$MPV_REPO"
+          sync_repo /g/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
+          sync_repo /g/mpv-build/libplacebo-src "$PLACEBO_REPO"
+          echo '--- heads ---'
+          git -C /g/mpv-build/mpv log -1 --oneline
+          git -C /g/ffmpeg-build/ffmpeg log -1 --oneline
+          git -C /g/mpv-build/libplacebo-src log -1 --oneline
+
+  # ==========================================================================
+  # build-all.sh STEPS 2+3: dependency matrix + libplacebo, per target.
+  # Runs the exact local scripts: build-deps.sh, build-libplacebo-*.sh
+  # ==========================================================================
+  deps:
+    needs: [sync-sources, lint-scripts]
+    runs-on: windows-2025
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ["zn3", "zn2", "11700"]
+    steps:
+      - name: Check out mpv-build
+        uses: actions/checkout@v6
+        with:
+          path: g/mpv-build
+      - name: Check out deps-build
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/deps-build
+          path: g/deps-build
+      - name: "Map G: drive"
+        shell: pwsh
+        run: |
+          subst G: "$env:GITHUB_WORKSPACE\g"
+          cmd /c dir G:\
+      - name: Install MSYS2 CLANG64 toolchain (local package set)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            git
+            autoconf-wrapper
+            automake-wrapper
+            libtool
+            m4
+            make
+            bison
+            flex
+            gperf
+            patch
+            diffutils
+            tar
+            curl
+            which
+            nasm
+            yasm
+            gettext
+          pacboy: >-
+            clang:p
+            meson:p
+            ninja:p
+            cmake:p
+            nasm:p
+            python:p
+            rust:p
+            cargo-c:p
+            pkgconf:p
+            gettext-runtime:p
+            zlib:p
+            zstd:p
+            vulkan-headers:p
+            vulkan-loader:p
+            opencl-headers:p
+      - name: Restore upstream source clones
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/src
+            g/mpv-build/mpv
+            g/mpv-build/libplacebo-src
+            g/ffmpeg-build/ffmpeg
+          key: src-${{ env.CACHE_RUN }}
+          restore-keys: |
+            src-
+      - name: Restore target prefix + build stamps (incremental)
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/deps-${{ matrix.target }}
+            g/deps-build/src/*/.built-${{ matrix.target }}
+          key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
+          restore-keys: |
+            dpfx-${{ matrix.target }}-
+      - name: Pin git line endings for fresh clones
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          # on an src- cache miss, build-deps.sh clones ~90 repos here;
+          # GH Windows git defaults to autocrlf=true, which would check
+          # out CRLF configure scripts and break bash/autotools
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - name: Build dependency matrix (build-all.sh step 2)
+        shell: msys2 {0}
+        env:
+          FORCE_DEPS_INPUT: ${{ inputs.force_deps && '1' || '0' }}
+          DEPS_LTO_INPUT: ${{ inputs.deps_lto }}
+        run: |
+          set -euo pipefail
+          export MSYSTEM=CLANG64
+          # mirror build-all.sh knob handling
+          if [ "${FORCE_DEPS_INPUT:-0}" = "1" ]; then
+            rm -f /g/deps-build/src/*/.built-*
+            export FORCE=1
+          fi
+          # common.sh defaults DEPS_LTO to 1; only explicit false disables
+          if [ "${DEPS_LTO_INPUT:-}" = "false" ]; then
+            export DEPS_LTO=0
+          fi
+          bash /g/deps-build/build-deps.sh ${{ matrix.target }}
+      - name: Build libplacebo (build-all.sh step 3)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export MSYSTEM=CLANG64
+          bash /g/mpv-build/build-libplacebo-${{ matrix.target }}.sh
+      - name: Upload dependency logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: logs-deps-${{ matrix.target }}
+          path: g/deps-build/logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ==========================================================================
+  # build-all.sh STEP 4: FFmpeg per target (exact local script, incl.
+  # its internal copydlls.sh call)
+  # ==========================================================================
+  ffmpeg:
+    needs: deps
+    runs-on: windows-2025
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "zn3"
+            install_dir: install
+          - target: "zn2"
+            install_dir: install-zn2
+          - target: "11700"
+            install_dir: install-11700
+    steps:
+      - name: Check out mpv-build (copydlls.sh + portable-conf)
+        uses: actions/checkout@v6
+        with:
+          path: g/mpv-build
+      - name: Check out ffmpeg-build
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository_owner }}/ffmpeg-build
+          path: g/ffmpeg-build
+      - name: "Map G: drive"
+        shell: pwsh
+        run: |
+          subst G: "$env:GITHUB_WORKSPACE\g"
+          cmd /c dir G:\
+      - name: Install MSYS2 CLANG64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            git
+            autoconf-wrapper
+            automake-wrapper
+            libtool
+            m4
+            make
+            bison
+            flex
+            gperf
+            patch
+            diffutils
+            tar
+            curl
+            which
+            nasm
+            yasm
+            gettext
+          pacboy: >-
+            clang:p
+            meson:p
+            ninja:p
+            cmake:p
+            nasm:p
+            python:p
+            rust:p
+            cargo-c:p
+            pkgconf:p
+            gettext-runtime:p
+            zlib:p
+            zstd:p
+            vulkan-headers:p
+            vulkan-loader:p
+            opencl-headers:p
+      - name: Restore upstream source clones
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/src
+            g/mpv-build/mpv
+            g/mpv-build/libplacebo-src
+            g/ffmpeg-build/ffmpeg
+          key: src-${{ env.CACHE_RUN }}
+          restore-keys: |
+            src-
+      - name: Restore per-target dependency prefix
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/deps-${{ matrix.target }}
+            g/deps-build/src/*/.built-${{ matrix.target }}
+          key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
+          restore-keys: |
+            dpfx-${{ matrix.target }}-
+      - name: Ensure FFmpeg clone exists (cache-miss fallback)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+          if [ ! -d /g/ffmpeg-build/ffmpeg/.git ]; then
+            git clone "$FFMPEG_REPO" /g/ffmpeg-build/ffmpeg
+          fi
+      - name: Build FFmpeg (build-all.sh step 4)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export MSYSTEM=CLANG64
+          bash /g/ffmpeg-build/build-${{ matrix.target }}.sh
+      - name: Verify FFmpeg (build-all.sh step 6)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          FP=/g/ffmpeg-build/${{ matrix.install_dir }}
+          "$FP/bin/ffmpeg.exe" -version 2>/dev/null | head -1 \
+            || { echo "ffmpeg.exe MISSING (${{ matrix.target }})"; exit 1; }
+          if compgen -G "$FP/bin/*ggml*" >/dev/null \
+            || compgen -G "$FP/bin/*whisper*" >/dev/null; then
+            echo "!!! FAIL: ggml/whisper in $FP/bin"
+            exit 1
+          fi
+          echo "OK: no ggml/whisper in $FP/bin"
+      - name: Cache FFmpeg install for the mpv job
+        uses: actions/cache@v6
+        with:
+          path: g/ffmpeg-build/${{ matrix.install_dir }}
+          key: ffinst-${{ matrix.target }}-${{ env.CACHE_RUN }}
+      - name: Upload FFmpeg build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ffmpeg-${{ matrix.target }}
+          path: g/ffmpeg-build/${{ matrix.install_dir }}/bin
+          retention-days: 30
+      - name: Upload FFmpeg logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: logs-ffmpeg-${{ matrix.target }}
+          path: |
+            g/ffmpeg-build/configure-${{ matrix.target }}.log
+            g/ffmpeg-build/make-${{ matrix.target }}.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ==========================================================================
+  # build-all.sh STEP 5: mpv per target (exact local script: meson ->
+  # ninja -> install -> copydlls.sh -> smoke_test.sh), plus fatal CI
+  # verification (locally the smoke test is non-fatal).
+  # ==========================================================================
+  mpv:
+    needs: [deps, ffmpeg]
+    runs-on: windows-2025
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "zn3"
+            install_dir: install-zn3
+            ffmpeg_dir: install
+          - target: "zn2"
+            install_dir: install-zn2
+            ffmpeg_dir: install-zn2
+          - target: "11700"
+            install_dir: install-11700
+            ffmpeg_dir: install-11700
+    steps:
+      - name: Check out mpv-build
+        uses: actions/checkout@v6
+        with:
+          path: g/mpv-build
+      - name: "Map G: drive"
+        shell: pwsh
+        run: |
+          subst G: "$env:GITHUB_WORKSPACE\g"
+          cmd /c dir G:\
+      - name: Install MSYS2 CLANG64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            git
+            autoconf-wrapper
+            automake-wrapper
+            libtool
+            m4
+            make
+            bison
+            flex
+            gperf
+            patch
+            diffutils
+            tar
+            curl
+            which
+            nasm
+            yasm
+            gettext
+          pacboy: >-
+            clang:p
+            meson:p
+            ninja:p
+            cmake:p
+            nasm:p
+            python:p
+            rust:p
+            cargo-c:p
+            pkgconf:p
+            gettext-runtime:p
+            zlib:p
+            zstd:p
+            vulkan-headers:p
+            vulkan-loader:p
+            opencl-headers:p
+      - name: Restore upstream source clones
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/src
+            g/mpv-build/mpv
+            g/mpv-build/libplacebo-src
+            g/ffmpeg-build/ffmpeg
+          key: src-${{ env.CACHE_RUN }}
+          restore-keys: |
+            src-
+      - name: Restore target dependency prefix (incl. libplacebo)
+        uses: actions/cache@v6
+        with:
+          path: |
+            g/deps-build/deps-${{ matrix.target }}
+            g/deps-build/src/*/.built-${{ matrix.target }}
+          key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
+          restore-keys: |
+            dpfx-${{ matrix.target }}-
+      - name: Restore per-target FFmpeg install
+        uses: actions/cache@v6
+        with:
+          path: g/ffmpeg-build/${{ matrix.ffmpeg_dir }}
+          key: ffinst-${{ matrix.target }}-${{ env.CACHE_RUN }}
+          restore-keys: |
+            ffinst-${{ matrix.target }}-
+      - name: Ensure mpv clone exists (cache-miss fallback)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+          if [ ! -d /g/mpv-build/mpv/.git ]; then
+            git clone "$MPV_REPO" /g/mpv-build/mpv
+          fi
+      - name: Build mpv (build-all.sh step 5)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export MSYSTEM=CLANG64
+          bash /g/mpv-build/build-${{ matrix.target }}.sh
+      - name: Verify mpv (build-all.sh step 6)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          # mpv.com, not mpv.exe: the GUI-subsystem binary detaches and
+          # would make this check vacuous in a headless CI session.
+          MP=/g/mpv-build/${{ matrix.install_dir }}/bin
+          "$MP/mpv.com" --version 2>/dev/null | head -1 \
+            || { echo "mpv.com MISSING (${{ matrix.target }})"; exit 1; }
+          if compgen -G "$MP/*ggml*" >/dev/null \
+            || compgen -G "$MP/*whisper*" >/dev/null; then
+            echo "!!! FAIL: ggml/whisper in $MP"
+            exit 1
+          fi
+          echo "OK: no ggml/whisper in $MP"
+      - name: Smoke test (fatal in CI)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          bash /g/mpv-build/smoke_test.sh \
+            "/g/mpv-build/${{ matrix.install_dir }}/bin"
+      - name: Upload mpv build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: mpv-${{ matrix.target }}
+          path: g/mpv-build/${{ matrix.install_dir }}/bin
+          retention-days: 30
+      - name: Upload mpv logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: logs-mpv-${{ matrix.target }}
+          path: |
+            g/mpv-build/configure-${{ matrix.target }}.log
+            g/mpv-build/make-${{ matrix.target }}.log
+            g/mpv-build/smoke.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ==========================================================================
+  # Package + GitHub Release. EVERY successful build posts a release:
+  # tag push uses that tag; dispatch uses release_tag or auto-creates
+  # build-<UTC stamp>.
+  # ==========================================================================
+  release:
+    needs: mpv
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v6
+        with:
+          pattern: "{mpv-*,ffmpeg-*}"
+          path: artifacts
+      - name: Resolve release tag
+        id: rtag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          $tag = if ($env:GITHUB_EVENT_NAME -eq 'push') {
+            $env:GITHUB_REF_NAME
+          } elseif ($env:RELEASE_TAG) {
+            $env:RELEASE_TAG
+          } else {
+            # manual run without a tag: auto-create a dated release tag
+            $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmm')
+            "build-$stamp"
+          }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+      - name: Zip per-target portable bundles
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ steps.rtag.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($dir in Get-ChildItem artifacts -Directory) {
+            $zip = "dist/$($dir.Name)-$env:RELEASE_TAG.zip"
+            Compress-Archive -Path (Join-Path $dir.FullName '*') `
+              -DestinationPath $zip -CompressionLevel Optimal
+            Write-Host "packed $zip"
+          }
+          Get-ChildItem dist | Format-Table Name, Length
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.rtag.outputs.tag }}
+          name: mpv custom builds ${{ steps.rtag.outputs.tag }}
+          body: |
+            > [!CAUTION]
+            > **THESE BINARIES ARE NOT REDISTRIBUTABLE — PERSONAL USE ONLY.**
+            >
+            > FFmpeg in this build is configured with
+            > `--enable-gpl --enable-version3 --enable-nonfree` and links
+            > GPL libraries (x264, x265, xvid, ...) plus the **nonfree**
+            > Fraunhofer FDK-AAC encoder. The resulting ffmpeg.exe / mpv.exe
+            > binaries are therefore "nonfree and unredistributable" (see the
+            > FFmpeg configure banner). They are published here solely as a
+            > personal build artifact of the repository owner.
+            > **Do not mirror, bundle, ship, or redistribute these zips.**
+
+            Self-compiled mpv + FFmpeg for three CPU targets (znver3 / znver2 /
+            rocketlake), clang CLANG64 toolchain, all dependencies built from
+            git masters. Dolby Vision P7 FEL via libplacebo (shaderc SPIR-V).
+          generate_release_notes: true
+          make_latest: true
+          files: dist/*.zip
