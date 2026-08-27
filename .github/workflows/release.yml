@@ -639,7 +639,7 @@ jobs:
       - name: Download all build artifacts
         uses: actions/download-artifact@v6
         with:
-          pattern: "{mpv-*,ffmpeg-*}"
+          pattern: "mpv-*"
           path: artifacts
       - name: Resolve release tag
         id: rtag
@@ -675,36 +675,33 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.rtag.outputs.tag }}
-          name: mpv + FFmpeg custom builds ${{ steps.rtag.outputs.tag }}
+          name: mpv custom builds ${{ steps.rtag.outputs.tag }}
           body: |
             > [!CAUTION]
             > **THESE BINARIES ARE NOT REDISTRIBUTABLE — PERSONAL USE ONLY.**
             >
-            > FFmpeg in this build is configured with
-            > `--enable-gpl --enable-version3 --enable-nonfree` and links
-            > GPL libraries (x264, x265, xvid, ...) plus the **nonfree**
-            > Fraunhofer FDK-AAC encoder. The resulting ffmpeg.exe / mpv.exe
-            > binaries are therefore "nonfree and unredistributable" (see the
-            > FFmpeg configure banner). They are published here solely as a
-            > personal build artifact of the repository owner.
+            > These mpv builds link an FFmpeg configured with
+            > `--enable-gpl --enable-version3 --enable-nonfree` (GPL
+            > libraries x264/x265/xvid/... plus the **nonfree**
+            > Fraunhofer FDK-AAC encoder). The resulting mpv.exe
+            > binaries are therefore "nonfree and unredistributable".
+            > They are published here solely as a personal build
+            > artifact of the repository owner.
             > **Do not mirror, bundle, ship, or redistribute these zips.**
 
-            Self-compiled **mpv** and **FFmpeg** for four targets,
-            clang CLANG64 toolchain, all dependencies built from git
-            masters. Dolby Vision P7 FEL via libplacebo (shaderc SPIR-V).
+            Self-compiled **mpv** for four targets, clang CLANG64
+            toolchain, all dependencies built from git masters.
+            Dolby Vision P7 FEL via libplacebo (shaderc SPIR-V).
 
-            Bundles (8 zips):
-            - `mpv-zn3` / `ffmpeg-zn3` — Ryzen 5700X3D (znver3) +
-              RTX 5070 (sm_120a)
-            - `mpv-zn2` / `ffmpeg-zn2` — Zen2 (znver2) + GTX 1650M (sm_75)
-            - `mpv-11700` / `ffmpeg-11700` — i7-11700 (rocketlake) +
-              RTX 4080 (sm_89)
-            - `mpv-3050` / `ffmpeg-3050` — Zen2 (znver2) + RTX 3050M
-              (sm_86)
+            Bundles (4 zips — mpv.exe/mpv.com + libmpv-2.dll + runtime
+            DLLs, portable dirs):
+            - `mpv-zn3` — Ryzen 5700X3D (znver3) + RTX 5070 (sm_120a)
+            - `mpv-zn2` — Zen2 (znver2) + GTX 1650M (sm_75)
+            - `mpv-11700` — i7-11700 (rocketlake) + RTX 4080 (sm_89)
+            - `mpv-3050` — Zen2 (znver2) + RTX 3050M (sm_86)
 
-            `ffmpeg-*` zips contain ffmpeg/ffplay/ffprobe + all runtime
-            DLLs (portable dir); `mpv-*` zips contain mpv.exe/mpv.com +
-            libmpv-2.dll + runtime DLLs (portable dir).
+            Companion FFmpeg builds (ffmpeg/ffplay/ffprobe, incl. Apple
+            `aac_at`) release separately at HyperRamzey/ffmpeg-releases.
           generate_release_notes: true
           make_latest: true
           files: dist/*.zip
