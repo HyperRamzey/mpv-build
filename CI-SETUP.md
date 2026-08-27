@@ -20,34 +20,32 @@ because every script hardcodes `/g/mpv-build`, `/g/ffmpeg-build`,
 
 ## One-time push (run once, from each local tree)
 
+Each tree already carries a `.gitignore` that excludes upstream clones,
+build dirs, prefixes, installs and logs, so a plain `git add -A` stages
+exactly the tracked content (scripts, recipes, patches, docs, NOTICE,
+workflow).
+
 ```powershell
 # mpv-build (contains .github/workflows/release.yml)
 cd G:\mpv-build
-git init -b main
-git add .gitignore .gitattributes .github build-all.sh build_all.cmd `
-        build-zn3.sh build-zn2.sh build-11700.sh `
-        build-libplacebo-zn3.sh build-libplacebo-zn2.sh `
-        build-libplacebo-11700.sh copydlls.sh smoke_test.sh `
-        check-scripts.sh portable-conf CLAUDE.md CI-SETUP.md
+git init -b main; git config core.autocrlf false
+git add -A
 git commit -m "mpv build scripts + CI pipeline"
 git remote add origin https://github.com/<OWNER>/mpv-build.git
 git push -u origin main
 
 # ffmpeg-build
 cd G:\ffmpeg-build
-git init -b main
-git add .gitignore .gitattributes build-zn3.sh build-zn2.sh `
-        build-11700.sh quick-configure.sh test_nvptx.sh
+git init -b main; git config core.autocrlf false
+git add -A
 git commit -m "FFmpeg per-target build scripts"
 git remote add origin https://github.com/<OWNER>/ffmpeg-build.git
 git push -u origin main
 
 # deps-build
 cd G:\deps-build
-git init -b main
-git add .gitignore .gitattributes common.sh build-deps.sh `
-        build-one.sh pull-all.sh fix-static-pcs.sh status.sh `
-        recipes patches
+git init -b main; git config core.autocrlf false
+git add -A
 git commit -m "self-compiled dependency framework"
 git remote add origin https://github.com/<OWNER>/deps-build.git
 git push -u origin main
@@ -60,9 +58,12 @@ names, adjust the `repository:` inputs in `release.yml`.
 ## Triggers
 
 - **Push a tag** `v*` → full build + GitHub Release with 6 zips
-  (mpv/ffmpeg × zn3/zn2/11700).
-- **Actions → release → Run workflow** → full build; artifacts only,
-  unless `release_tag` is filled (then a Release is created too).
+  (mpv/ffmpeg × zn3/zn2/11700) under that tag.
+- **Actions → release → Run workflow** → full build; with a
+  `release_tag` the Release is created under that tag, without one a
+  `build-<UTC stamp>` tag is auto-created so every successful run
+  posts a Release. The release body carries the prominent
+  NOT-REDISTRIBUTABLE notice.
   Knobs: `force_deps` (rebuild all deps), `deps_lto` (default on,
   matches local `common.sh`).
 
