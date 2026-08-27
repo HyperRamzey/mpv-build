@@ -184,6 +184,10 @@ jobs:
           sync_repo /g/mpv-build/mpv "$MPV_REPO"
           sync_repo /g/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
           sync_repo /g/mpv-build/libplacebo-src "$PLACEBO_REPO"
+          # libplacebo needs its 3rdparty submodules (glad python package,
+          # fast_float, jinja, markupsafe, Vulkan-Headers) for meson setup
+          git -C /g/mpv-build/libplacebo-src submodule update \
+            --init --recursive
           echo '--- heads ---'
           git -C /g/mpv-build/mpv log -1 --oneline
           git -C /g/ffmpeg-build/ffmpeg log -1 --oneline
