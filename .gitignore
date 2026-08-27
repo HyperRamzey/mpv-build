@@ -30,3 +30,4 @@
 /fix-mpv-link.sh
 /e2e-3050.sh
 /syntax-check-all.sh
+/audit-fresh-clone.sh
