@@ -11,6 +11,7 @@ no MSYS2 media packages are linked.
 | zn3     | Ryzen 5700X3D (znver3) | RTX 5070 (Blackwell) | sm_120a   |
 | zn2     | Zen2 (znver2)          | GTX 1650M (Turing)   | sm_75     |
 | 11700   | i7-11700 (rocketlake)  | RTX 4080 (Ada)       | sm_89     |
+| 3050    | Zen2 (znver2)          | RTX 3050M (Ampere)   | sm_86     |
 
 Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 (PL_API_VER >= 370, shaderc SPIR-V) + custom FFmpeg. Full

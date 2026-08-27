@@ -10,9 +10,10 @@ PREFIX="${1:?usage: copydlls.sh <install-prefix> [deps-prefix]}"
 DEPS_PREFIX="${2:-}"
 
 case "$PREFIX" in
-	*zn2*)          DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-zn2}" ;;
-	*11700*)        DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-11700}" ;;
-	*)              DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-zn3}" ;;
+*zn2*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-zn2}" ;;
+*11700*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-11700}" ;;
+*3050*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-3050}" ;;
+*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-zn3}" ;;
 esac
 
 echo "=== copydlls: prefix=$PREFIX deps=$DEPS_PREFIX ==="
@@ -31,22 +32,25 @@ fi
 # 2) Import closure against /clang64/bin only (convergent: newly copied DLLs add imports)
 pass=0
 copied_total=0
-while : ; do
-	pass=$((pass+1))
+while :; do
+	pass=$((pass + 1))
 	new=0
 	while read -r dep; do
 		src="/clang64/bin/$dep"
 		dst="$PREFIX/bin/$dep"
 		if [[ -f "$src" && ! -f "$dst" ]]; then
 			cp "$src" "$dst"
-			new=$((new+1))
-			copied_total=$((copied_total+1))
+			new=$((new + 1))
+			copied_total=$((copied_total + 1))
 		fi
-	done < <(timeout 60 ldd "$PREFIX"/bin/*.exe "$PREFIX"/bin/*.com "$PREFIX"/bin/*.dll 2>/dev/null \
-		| awk '$3 ~ /\/clang64\/bin\// { print $3 }' | xargs -r -n1 basename | sort -u)
+	done < <(timeout 60 ldd "$PREFIX"/bin/*.exe "$PREFIX"/bin/*.com "$PREFIX"/bin/*.dll 2>/dev/null |
+		awk '$3 ~ /\/clang64\/bin\// { print $3 }' | xargs -r -n1 basename | sort -u)
 	echo "copydlls: pass $pass -> $new new DLLs"
 	[[ $new -eq 0 ]] && break
-	[[ $pass -ge 6 ]] && { echo "WARN: closure did not converge after 6 passes"; break; }
+	[[ $pass -ge 6 ]] && {
+		echo "WARN: closure did not converge after 6 passes"
+		break
+	}
 done
 
 # 3) Portable config (mpv.conf/fonts.conf/ir.wav) from project-local snapshot

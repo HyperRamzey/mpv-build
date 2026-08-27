@@ -4,7 +4,7 @@
 # → mpv ×3, all from latest git masters with per-target max optimization.
 #
 # Targets: znver3 (Zen3/RTX 5070 sm_120a), znver2 (Zen2/GTX 1650M sm_75),
-#          rocketlake (i7-11700/RTX 4080 sm_89)
+#          rocketlake (i7-11700/RTX 4080 sm_89), 3050 (Zen2/RTX 3050M sm_86)
 #
 # Env knobs:
 #   CLEAN=0    skip step 0 (incremental; default is FULL CLEAN of outputs+builds,
@@ -17,7 +17,7 @@ set -euo pipefail
 
 echo "############################################################"
 echo "# FULL E2E BUILD ORCHESTRATOR"
-echo "# deps(~45 libs) + libplacebo + FFmpeg + mpv × znver3/znver2/11700"
+echo "# deps(~45 libs) + libplacebo + FFmpeg + mpv × znver3/znver2/11700/3050"
 echo "# $(date)"
 echo "############################################################"
 
@@ -29,14 +29,14 @@ export MSYSTEM=CLANG64
 if [ "${CLEAN:-1}" = "1" ]; then
 	echo ""
 	echo "=== STEP 0/6: Clean all build artifacts ==="
-	rm -rf /g/mpv-build/build-zn3 /g/mpv-build/build-zn2 /g/mpv-build/build-11700
+	rm -rf /g/mpv-build/build-zn3 /g/mpv-build/build-zn2 /g/mpv-build/build-11700 /g/mpv-build/build-3050
 	rm -rf /g/mpv-build/libplacebo-src/_build* 
-	for d in /g/mpv-build/install-zn3 /g/mpv-build/install-zn2 /g/mpv-build/install-11700; do
+	for d in /g/mpv-build/install-zn3 /g/mpv-build/install-zn2 /g/mpv-build/install-11700 /g/mpv-build/install-3050; do
 		# tolerate ghost-locked files (dead handles): clear contents, not the dir
 		rm -rf "$d"/bin "$d"/lib "$d"/etc "$d"/share "$d"/include 2>/dev/null || \
 			rm -f "$d"/bin/* 2>/dev/null || true
 	done
-	rm -rf /g/ffmpeg-build/install /g/ffmpeg-build/install-zn2 /g/ffmpeg-build/install-11700
+	rm -rf /g/ffmpeg-build/install /g/ffmpeg-build/install-zn2 /g/ffmpeg-build/install-11700 /g/ffmpeg-build/install-3050
 	cd /g/ffmpeg-build/ffmpeg && make clean 2>/dev/null || true
 	[ "${FORCE_DEPS:-0}" = "1" ] && rm -f /g/deps-build/src/*/.built-*
 else
@@ -61,10 +61,10 @@ git -C /g/mpv-build/libplacebo-src log -1 --oneline
 # Step 2: dependencies ×3 (stamp-cached; only changed repos rebuild)
 # ==============================================================================
 echo ""
-echo "=== STEP 2/6: self-built dependency matrix (zn3 → zn2 → 11700) ==="
+echo "=== STEP 2/6: self-built dependency matrix (zn3 → zn2 → 11700 → 3050) ==="
 [ "${FORCE_DEPS:-0}" = "1" ] && export FORCE=1
 [ "${DEPS_LTO:-0}" = "1" ] && export DEPS_LTO=1
-/g/deps-build/build-deps.sh zn3 zn2 11700
+/g/deps-build/build-deps.sh zn3 zn2 11700 3050
 
 # ==============================================================================
 # Step 3: libplacebo ×3 → per-target deps prefixes
@@ -73,6 +73,7 @@ echo ""
 echo "=== STEP 3/6: libplacebo zn3 ==="; /g/mpv-build/build-libplacebo-zn3.sh
 echo ""; echo "=== STEP 3/6: libplacebo zn2 ==="; /g/mpv-build/build-libplacebo-zn2.sh
 echo ""; echo "=== STEP 3/6: libplacebo 11700 ==="; /g/mpv-build/build-libplacebo-11700.sh
+echo ""; echo "=== STEP 3/6: libplacebo 3050 ==="; /g/mpv-build/build-libplacebo-3050.sh
 
 # ==============================================================================
 # Step 4: FFmpeg ×3
@@ -83,6 +84,8 @@ echo ""
 echo "=== STEP 4/6: FFmpeg zn2 (sm_75) ==="; /g/ffmpeg-build/build-zn2.sh
 echo ""
 echo "=== STEP 4/6: FFmpeg 11700 (sm_89) ==="; /g/ffmpeg-build/build-11700.sh
+echo ""
+echo "=== STEP 4/6: FFmpeg 3050 (sm_86) ==="; /g/ffmpeg-build/build-3050.sh
 
 # ==============================================================================
 # Step 5: mpv ×3
@@ -93,17 +96,20 @@ echo ""
 echo "=== STEP 5/6: mpv zn2 ==="; /g/mpv-build/build-zn2.sh
 echo ""
 echo "=== STEP 5/6: mpv 11700 ==="; /g/mpv-build/build-11700.sh
+echo ""
+echo "=== STEP 5/6: mpv 3050 ==="; /g/mpv-build/build-3050.sh
 
 # ==============================================================================
 # Step 6: verification summary
 # ==============================================================================
 echo ""
 echo "=== STEP 6/6: verification ==="
-for t in zn3 zn2 11700; do
+for t in zn3 zn2 11700 3050; do
 	case $t in
 		zn3)   FP=/g/ffmpeg-build/install;      MP=/g/mpv-build/install-zn3/bin ;;
 		zn2)   FP=/g/ffmpeg-build/install-zn2;  MP=/g/mpv-build/install-zn2/bin ;;
 		11700) FP=/g/ffmpeg-build/install-11700; MP=/g/mpv-build/install-11700/bin ;;
+		3050)  FP=/g/ffmpeg-build/install-3050;  MP=/g/mpv-build/install-3050/bin ;;
 	esac
 	echo "--- $t ---"
 	"$MP/mpv.exe" --version 2>/dev/null | head -1 || echo "mpv.exe MISSING for $t"

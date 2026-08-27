@@ -5,7 +5,7 @@
 # Local orchestrator: G:\mpv-build\build-all.sh
 #   step 0  clean                    -> CI runners are always fresh (no-op)
 #   step 1  git pull ALL sources     -> job: sync-sources
-#   step 2  deps x3 (build-deps.sh)  -> job: deps   (matrix zn3/zn2/11700)
+#   step 2  deps x3 (build-deps.sh)  -> job: deps   (matrix zn3/zn2/11700/3050)
 #   step 3  libplacebo x3            -> job: deps   (same job, right after)
 #   step 4  FFmpeg x3                -> job: ffmpeg (matrix)
 #   step 5  mpv x3                   -> job: mpv    (matrix)
@@ -200,7 +200,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: ["zn3", "zn2", "11700"]
+        target: ["zn3", "zn2", "11700", "3050"]
     steps:
       - name: Check out mpv-build
         uses: actions/checkout@v6
@@ -335,6 +335,8 @@ jobs:
             install_dir: install-zn2
           - target: "11700"
             install_dir: install-11700
+          - target: "3050"
+            install_dir: install-3050
     steps:
       - name: Check out mpv-build (copydlls.sh + portable-conf)
         uses: actions/checkout@v6
@@ -481,6 +483,9 @@ jobs:
           - target: "11700"
             install_dir: install-11700
             ffmpeg_dir: install-11700
+          - target: "3050"
+            install_dir: install-3050
+            ffmpeg_dir: install-3050
     steps:
       - name: Check out mpv-build
         uses: actions/checkout@v6

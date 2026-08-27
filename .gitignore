@@ -26,3 +26,7 @@
 /probe-*.sh
 /resume-*.sh
 /diag-placebo.sh
+/run-tail*.sh
+/fix-mpv-link.sh
+/e2e-3050.sh
+/syntax-check-all.sh

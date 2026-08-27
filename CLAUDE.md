@@ -1,6 +1,6 @@
 # mpv Custom Build — G:\mpv-build + G:\ffmpeg-build + G:\deps-build
 
-Self-compiled mpv + libmpv for three CPU targets, built with clang 22
+Self-compiled mpv + libmpv for four CPU targets, built with clang 22
 (MSYS2 CLANG64). **ALL external libraries are self-compiled per-target**
 (static-first) from latest git masters via the G:\deps-build framework —
 no MSYS2 media packages are linked.
@@ -10,6 +10,7 @@ no MSYS2 media packages are linked.
 | zn3     | Ryzen 5700X3D (znver3) | RTX 5070 (Blackwell) | sm_120a |
 | zn2     | Zen2 (znver2)     | GTX 1650M (Pascal)   | sm_75   |
 | 11700   | Intel i7-11700 (rocketlake) | RTX 4080 (Ada) | sm_89  |
+| 3050    | Zen2 (znver2)     | RTX 3050M (Ampere)   | sm_86   |
 
 Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 (PL_API_VER >= 370) + custom FFmpeg. Full D3D11/WASAPI/Vulkan/gpu-next.
@@ -26,7 +27,7 @@ G:\deps-build\                 THE DEP FRAMEWORK (~45 self-compiled libs)
 ├── patches/                   local patches (libmysofa-large-files.patch!)
 ├── src/<lib>/                 git clones (submodules where needed)
 ├── build/<target>/<lib>/      out-of-tree build dirs
-├── deps-<zn3|zn2|11700>/      MERGED per-target prefix (bin/lib/include/pkgconfig)
+├── deps-<zn3|zn2|11700|3050>/ MERGED per-target prefix (bin/lib/include/pkgconfig)
 └── logs/                      per-lib per-target build logs
 
 G:\mpv-build\
@@ -113,7 +114,7 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
   uchardet libgme libmodplug libsixel dvdcss dvdread dvdnav luajit mujs libarchive frei0r
 - **net**: srt libssh libzmq librtmp
 - **gpu**: vulkan-headers vulkan-loader glslang spirv-cross opencl-headers
-  opencl-icd-loader ffnvcodec libvpl libdovi* vapoursynth*
+  opencl-icd-loader ffnvcodec libvpl libdovi*vapoursynth*
 - `*` = BEST_EFFORT (failure doesn't kill the run; downstream auto-disables)
 - libplacebo builds into deps-<t> per target (glslang route, shaderc off).
 
