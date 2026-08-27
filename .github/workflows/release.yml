@@ -675,7 +675,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.rtag.outputs.tag }}
-          name: mpv custom builds ${{ steps.rtag.outputs.tag }}
+          name: mpv + FFmpeg custom builds ${{ steps.rtag.outputs.tag }}
           body: |
             > [!CAUTION]
             > **THESE BINARIES ARE NOT REDISTRIBUTABLE — PERSONAL USE ONLY.**
@@ -689,9 +689,22 @@ jobs:
             > personal build artifact of the repository owner.
             > **Do not mirror, bundle, ship, or redistribute these zips.**
 
-            Self-compiled mpv + FFmpeg for three CPU targets (znver3 / znver2 /
-            rocketlake), clang CLANG64 toolchain, all dependencies built from
-            git masters. Dolby Vision P7 FEL via libplacebo (shaderc SPIR-V).
+            Self-compiled **mpv** and **FFmpeg** for four targets,
+            clang CLANG64 toolchain, all dependencies built from git
+            masters. Dolby Vision P7 FEL via libplacebo (shaderc SPIR-V).
+
+            Bundles (8 zips):
+            - `mpv-zn3` / `ffmpeg-zn3` — Ryzen 5700X3D (znver3) +
+              RTX 5070 (sm_120a)
+            - `mpv-zn2` / `ffmpeg-zn2` — Zen2 (znver2) + GTX 1650M (sm_75)
+            - `mpv-11700` / `ffmpeg-11700` — i7-11700 (rocketlake) +
+              RTX 4080 (sm_89)
+            - `mpv-3050` / `ffmpeg-3050` — Zen2 (znver2) + RTX 3050M
+              (sm_86)
+
+            `ffmpeg-*` zips contain ffmpeg/ffplay/ffprobe + all runtime
+            DLLs (portable dir); `mpv-*` zips contain mpv.exe/mpv.com +
+            libmpv-2.dll + runtime DLLs (portable dir).
           generate_release_notes: true
           make_latest: true
           files: dist/*.zip
