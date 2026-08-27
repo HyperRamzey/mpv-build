@@ -248,6 +248,7 @@ jobs:
             python:p
             rust:p
             cargo-c:p
+            cython:p
             pkgconf:p
             gettext-runtime:p
             zlib:p
@@ -384,6 +385,7 @@ jobs:
             python:p
             rust:p
             cargo-c:p
+            cython:p
             pkgconf:p
             gettext-runtime:p
             zlib:p
@@ -528,6 +530,7 @@ jobs:
             python:p
             rust:p
             cargo-c:p
+            cython:p
             pkgconf:p
             gettext-runtime:p
             zlib:p
