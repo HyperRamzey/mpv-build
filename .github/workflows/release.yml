@@ -251,6 +251,7 @@ jobs:
             cython:p
             pkgconf:p
             gettext-runtime:p
+            SDL2:p
             zlib:p
             zstd:p
             vulkan-headers:p
@@ -388,6 +389,7 @@ jobs:
             cython:p
             pkgconf:p
             gettext-runtime:p
+            SDL2:p
             zlib:p
             zstd:p
             vulkan-headers:p
@@ -533,6 +535,7 @@ jobs:
             cython:p
             pkgconf:p
             gettext-runtime:p
+            SDL2:p
             zlib:p
             zstd:p
             vulkan-headers:p
