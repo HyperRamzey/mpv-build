@@ -46,8 +46,10 @@ G:\mpv-build\
 
 G:\ffmpeg-build\
 ├── ffmpeg\                    FFmpeg git clone
-├── build-<t>.sh               per-target; consumes deps-<t> + installs install[-zn2|-11700]
+├── build-<t>.sh               per-target; consumes deps-<t> + installs install[-zn2|-11700|-3050]
 └── install*\bin\              ffmpeg/ffplay/ffprobe per target
+
+G:\ffmpeg-releases\            FFmpeg-only GitHub release pipeline (workflow repo)
 ```
 
 ## Toolchain
@@ -113,10 +115,17 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
 - **text/subs**: freetype fribidi harfbuzz fontconfig libxml2 libaribcaption
   uchardet libgme libmodplug libsixel dvdcss dvdread dvdnav luajit mujs libarchive frei0r
 - **net**: srt libssh libzmq librtmp
-- **gpu**: vulkan-headers vulkan-loader glslang spirv-cross opencl-headers
-  opencl-icd-loader ffnvcodec libvpl libdovi*vapoursynth*
+- **gpu**: vulkan-headers vulkan-loader glslang shaderc spirv-cross opencl-headers
+  opencl-icd-loader ffnvcodec libvpl libdovi* vapoursynth* wat4ff
 - `*` = BEST_EFFORT (failure doesn't kill the run; downstream auto-disables)
-- libplacebo builds into deps-<t> per target (glslang route, shaderc off).
+- libplacebo builds into deps-<t> per target (shaderc route, glslang off).
+- **Apple AAC (`aac_at`)**: FFmpeg `--enable-audiotoolbox` via wat4ff
+  wrapper (deps recipe). make runs with `LD=$DEPS/wat4ff_ld
+  WAT4FF_TRUELD=clang` (rewrites `-framework AudioToolbox` →
+  `-lwat4ff`); post-install the ffmpeg .pc files are sed-sanitized the
+  same way so mpv can link. Runtime needs Apple's proprietary DLLs
+  (iTunes/Apple Application Support or QTfiles64 next to ffmpeg.exe) —
+  NOT shipped (see ffmpeg-releases README).
 
 ## Dolby Vision P7 FEL + ASH BRIR SOFA support
 
@@ -129,6 +138,18 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
   Upstream issue draft: `G:\deps-build\patches\upstream-issue.md`.
 - mpv usage once rebuilt: `mpv --af=lavfi=[sofalizer=sofa=<file>] <media>`
   (BRIRs are time-domain FIR; default sofalizer type=time is correct).
+
+## Releases (GitHub Actions)
+
+- **mpv releases**: mpv-build repo workflow (`release.yml`) → 4 zips
+  (mpv-zn3/zn2/11700/3050), mpv-only since 2026-08.
+- **FFmpeg releases**: dedicated **ffmpeg-releases** repo workflow →
+  4 zips (ffmpeg-zn3/zn2/11700/3050). Same deps+ffmpeg pipeline,
+  checks out deps-build/ffmpeg-build/mpv-build (libplacebo scripts).
+- Both releases carry a prominent NON-REDISTRIBUTABLE notice
+  (`--enable-gpl --enable-version3 --enable-nonfree` + FDK-AAC).
+- Tarball deps (libiconv/gavl) fetch with retry + GNU mirror fallback
+  (ftpmirror.gnu.org) — ftp.gnu.org flakes from GH runners.
 
 ## Verify after rebuild
 

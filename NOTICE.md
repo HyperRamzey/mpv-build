@@ -10,6 +10,9 @@ and links, among others:
 
 - **GPL**: x264, x265, xvid, dav1d/SVT-AV1 tooling, vapoursynth glue
 - **nonfree**: Fraunhofer **FDK-AAC** (`--enable-libfdk-aac`)
+- **Apple proprietary runtime**: `--enable-audiotoolbox` via the wat4ff
+  wrapper (`aac_at` encoder) loads Apple's CoreAudio DLLs at runtime;
+  those DLLs are Apple's property and are NOT shipped
 
 Per FFmpeg's own configure banner the resulting binaries are
 **"nonfree and unredistributable"**. The same applies to the mpv
@@ -17,7 +20,8 @@ binaries linked against that FFmpeg/libav* build.
 
 Consequences:
 
-- The release zips published by the GitHub Actions pipeline are
+- The release zips published by the GitHub Actions pipelines
+  (mpv here; FFmpeg at HyperRamzey/ffmpeg-releases) are
   **personal build artifacts of the repository owner only**.
 - **Do not mirror, bundle, ship, or redistribute** the produced
   `ffmpeg.exe` / `ffplay.exe` / `ffprobe.exe` / `mpv.exe` binaries or
