@@ -2,10 +2,10 @@
 # check-scripts.sh — syntax check + broken-continuation detector for build scripts
 set -u
 SCRIPTS=(
-  /g/mpv-build/build-all.sh /g/mpv-build/build-zn3.sh /g/mpv-build/build-zn2.sh /g/mpv-build/build-11700.sh /g/mpv-build/build-3050.sh /g/mpv-build/build-14600.sh
-  /g/mpv-build/build-libplacebo-zn3.sh /g/mpv-build/build-libplacebo-zn2.sh /g/mpv-build/build-libplacebo-11700.sh /g/mpv-build/build-libplacebo-3050.sh /g/mpv-build/build-libplacebo-14600.sh
+  /g/mpv-build/build-all.sh /g/mpv-build/build-zn3.sh /g/mpv-build/build-zn2.sh /g/mpv-build/build-11700.sh /g/mpv-build/build-3050.sh /g/mpv-build/build-14600.sh /g/mpv-build/build-x64v2.sh /g/mpv-build/build-x64v3.sh /g/mpv-build/build-x64v4.sh
+  /g/mpv-build/build-libplacebo-zn3.sh /g/mpv-build/build-libplacebo-zn2.sh /g/mpv-build/build-libplacebo-11700.sh /g/mpv-build/build-libplacebo-3050.sh /g/mpv-build/build-libplacebo-14600.sh /g/mpv-build/build-libplacebo-x64v2.sh /g/mpv-build/build-libplacebo-x64v3.sh /g/mpv-build/build-libplacebo-x64v4.sh
   /g/mpv-build/copydlls.sh /g/mpv-build/smoke_test.sh
-  /g/ffmpeg-build/build-zn3.sh /g/ffmpeg-build/build-zn2.sh /g/ffmpeg-build/build-11700.sh /g/ffmpeg-build/build-3050.sh /g/ffmpeg-build/build-14600.sh
+  /g/ffmpeg-build/build-zn3.sh /g/ffmpeg-build/build-zn2.sh /g/ffmpeg-build/build-11700.sh /g/ffmpeg-build/build-3050.sh /g/ffmpeg-build/build-14600.sh /g/ffmpeg-build/build-x64v2.sh /g/ffmpeg-build/build-x64v3.sh /g/ffmpeg-build/build-x64v4.sh
   /g/deps-build/build-deps.sh /g/deps-build/build-one.sh /g/deps-build/common.sh /g/deps-build/pull-all.sh /g/deps-build/fix-static-pcs.sh /g/deps-build/sanitize-prefix.sh
 )
 rc=0

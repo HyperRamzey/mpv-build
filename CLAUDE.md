@@ -1,8 +1,9 @@
 # mpv Custom Build — G:\mpv-build + G:\ffmpeg-build + G:\deps-build
 
-Self-compiled mpv + libmpv for FIVE CPU targets, built with clang 22
+Self-compiled mpv + libmpv for EIGHT build targets (5 hardware + 3
+generic ISA levels), built with clang 22
 (MSYS2 CLANG64). **ALL external libraries are self-compiled per-target**
-(static-first) from latest git masters via the G:\deps-build framework —
+(static-first) from latest git masters via the deps framework —
 no MSYS2 media packages are linked.
 
 > **2-repo model**: everything needed to build is vendored INSIDE this
@@ -20,6 +21,14 @@ no MSYS2 media packages are linked.
 | 11700   | Intel i7-11700 (rocketlake) | RTX 4080 (Ada) | sm_89  |
 | 3050    | Zen2 (znver2)     | RTX 3050M (Ampere)   | sm_86   |
 | 14600   | i5-14600 (raptorlake) | RTX 50-series (Blackwell) | sm_120a |
+| x64v2   | generic nehalem (v2/SSE4.2) | any NVIDIA (allcuda) | sm_75 PTX |
+| x64v3   | generic haswell (v3/AVX2)   | any NVIDIA (allcuda) | sm_75 PTX |
+| x64v4   | generic skylake-avx512 (v4/AVX-512) | any NVIDIA (allcuda) | sm_75 PTX |
+
+The x64v* rows are CI-oriented generic builds (clang lacks GCC's
+`x86-64-vN` names — nehalem/haswell/skylake-avx512 are the concrete
+equivalents). allcuda = sm_75 PTX 6.3, driver-JITs to every NVIDIA GPU.
+See ADD-A-TARGET.md for the full guide.
 
 Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 (PL_API_VER >= 370) + custom FFmpeg. Full D3D11/WASAPI/Vulkan/gpu-next.

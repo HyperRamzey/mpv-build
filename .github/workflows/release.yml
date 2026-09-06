@@ -59,11 +59,12 @@ name: release
     inputs:
       targets:
         description: >-
-          Space-separated target list to build (default: all five).
-          Each target maps to a fixed cpu/gpu/cuda gen in the build
-          scripts (deps-build common.sh target_env + ffmpeg NVCC flags).
+          Space-separated target list to build (default: all eight).
+          Hardware targets map to fixed cpu/gpu/cuda gens; the x64v2/v3/v4
+          rows are generic ISA levels with the allcuda PTX profile
+          (sm_75 PTX 6.3 — the NVIDIA driver JITs to any GPU).
         type: string
-        default: "zn3 zn2 11700 3050 14600"
+        default: "zn3 zn2 11700 3050 14600 x64v2 x64v3 x64v4"
       force_deps:
         description: "Rebuild ALL dependencies (ignore stamp cache)"
         type: boolean
@@ -96,6 +97,10 @@ env:
   PLACEBO_REPO: https://code.videolan.org/videolan/libplacebo.git
   # unique per run+attempt: cache keys derived from it never collide
   CACHE_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+  # full default target set (dispatch `targets` input overrides; tag
+  # pushes fall back to this). Folded scalar keeps lines under 80 cols.
+  TARGETS_DEFAULT: >-
+    zn3 zn2 11700 3050 14600 x64v2 x64v3 x64v4
   # Target generation table: one row = one hardware gen (name cpu gpu
   # cuda). The dispatch `targets` input selects any subset; the setup
   # job turns the selection into the per-job build matrix.
@@ -104,12 +109,20 @@ env:
   #   cuda -> ffmpeg-build build-<t>.sh NVCCFLAGS (clang NVPTX)
   #   install dirs: zn3 ffmpeg = bare `install` (historical), all
   #   others install-<target>; mpv always install-<target>.
+  # Generic rows (x64v2/v3/v4) use clang's concrete equivalents of the
+  # GCC x86-64-v2/v3/v4 levels (clang rejects the generic names):
+  #   v2 = nehalem (SSE4.2)  v3 = haswell (AVX2)  v4 = skylake-avx512,
+  # plus the allcuda CUDA profile (sm_75 PTX 6.3 — the NVIDIA driver
+  # JITs it to every GPU from Pascal up at runtime).
   TARGET_TABLE: |
     zn3 znver3 Ryzen-5700X3D+RTX-5070-Blackwell sm_120a
     zn2 znver2 Zen2+GTX-1650M-Pascal sm_75
     11700 rocketlake i7-11700+RTX-4080-Ada sm_89
     3050 znver2 Zen2+RTX-3050M-Ampere sm_86
     14600 raptorlake i5-14600+RTX-50-series-Blackwell sm_120a
+    x64v2 nehalem generic-x86-64-v2-SSE4.2 allcuda
+    x64v3 haswell generic-x86-64-v3-AVX2 allcuda
+    x64v4 skylake-avx512 generic-x86-64-v4-AVX-512 allcuda
 
 jobs:
   # ==========================================================================
@@ -128,12 +141,12 @@ jobs:
         shell: bash
         env:
           TARGET_TABLE: ${{ env.TARGET_TABLE }}
-          TARGETS_INPUT: ${{ inputs.targets || 'zn3 zn2 11700 3050 14600' }}
+          TARGETS_INPUT: ${{ inputs.targets || env.TARGETS_DEFAULT }}
         run: |
           set -euo pipefail
           # rows: <name> <cpu> <gpu-label> <cuda>
           all="$(echo "$TARGET_TABLE" | sed '/^\s*#/d;/^\s*$/d')"
-          want="${TARGETS_INPUT:-zn3 zn2 11700 3050 14600}"
+          want="${TARGETS_INPUT:-zn3 zn2 11700 3050 14600 x64v2 x64v3 x64v4}"
           echo "requested targets: $want"
           json="["
           first=1
@@ -769,7 +782,7 @@ jobs:
             Lean bundles: mpv.exe/mpv.com + libmpv-2.dll + vulkan-1.dll +
             the VapourSynth frameserver runtime + portable config.
 
-            Targets (default five; configurable per-run via the
+            Targets (default eight; configurable per-run via the
             `targets` dispatch input — see workflow definition):
             - `mpv-zn3` — Ryzen 5700X3D (znver3) + RTX 5070 (Blackwell, sm_120a)
             - `mpv-zn2` — Zen2 (znver2) + GTX 1650M (Pascal, sm_75)
@@ -777,6 +790,14 @@ jobs:
             - `mpv-3050` — Zen2 (znver2) + RTX 3050M (Ampere, sm_86)
             - `mpv-14600` — i5-14600 (raptorlake) + RTX 50-series
               (Blackwell, sm_120a)
+            - `mpv-x64v2` — generic x86-64-v2 (SSE4.2) + allcuda
+            - `mpv-x64v3` — generic x86-64-v3 (AVX2) + allcuda
+            - `mpv-x64v4` — generic x86-64-v4 (AVX-512) + allcuda
+
+            The `x64v*` bundles use portable ISA levels (clang concrete
+            equivalents of GCC's x86-64-vN) and the allcuda profile: the
+            embedded CUDA kernels are PTX 6.3 that the NVIDIA driver
+            JIT-compiles to ANY CUDA GPU from Pascal (2016) up.
 
             Companion FFmpeg builds (ffmpeg/ffplay/ffprobe, incl. Apple
             `aac_at`) release separately at HyperRamzey/ffmpeg-releases.

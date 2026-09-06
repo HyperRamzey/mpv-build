@@ -47,7 +47,14 @@ target_env() {
 		11700) ARCH=rocketlake;  TARGET_CPU="i7-11700 (RKL) + RTX 4080 (Ada)" ;;
 		3050)  ARCH=znver2;      TARGET_CPU="Zen2 + RTX 3050M (Ampere)" ;;
 		14600) ARCH=raptorlake;  TARGET_CPU="i5-14600 (RPL) + RTX 50-series (Blackwell)" ;;
-		*) die "unknown target '$t' (want: zn2|zn3|11700|3050|14600)" ;;
+		# generic ISA-level targets (CI-oriented; clang equivalents of
+		# GCC's x86-64-v2/v3/v4 — clang rejects the generic names):
+		#   x64v2 = nehalem  (SSE4.2)   x64v3 = haswell  (AVX2)
+		#   x64v4 = skylake-avx512 (AVX-512)
+		x64v2) ARCH=nehalem;         TARGET_CPU="generic x86-64-v2 (SSE4.2) + any NVIDIA (allcuda)" ;;
+		x64v3) ARCH=haswell;         TARGET_CPU="generic x86-64-v3 (AVX2) + any NVIDIA (allcuda)" ;;
+		x64v4) ARCH=skylake-avx512;  TARGET_CPU="generic x86-64-v4 (AVX-512) + any NVIDIA (allcuda)" ;;
+		*) die "unknown target '$t' (want: zn2|zn3|11700|3050|14600|x64v2|x64v3|x64v4)" ;;
 	esac
 	TARGET="$t"
 	PREFIX="$DEPS_ROOT/deps-$t"

@@ -13,7 +13,16 @@ no MSYS2 media packages are linked.
 | 11700   | i7-11700 (rocketlake)  | RTX 4080 (Ada)       | sm_89     |
 | 3050    | Zen2 (znver2)          | RTX 3050M (Ampere)   | sm_86     |
 | 14600   | i5-14600 (raptorlake)  | RTX 50-series (Blackwell) | sm_120a |
-Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
+| x64v2   | generic (nehalem)      | any NVIDIA GPU       | allcuda   |
+| x64v3   | generic (haswell)       | any NVIDIA GPU       | allcuda   |
+| x64v4   | generic (skylake-avx512)| any NVIDIA GPU       | allcuda   |
+
+The `x64v*` targets are the clang equivalents of the GCC `x86-64-v2/v3/v4`
+portable ISA levels (SSE4.2 / AVX2 / AVX-512) paired with the **allcuda**
+CUDA profile (sm_75 PTX 6.3 — the NVIDIA driver JIT-compiles it to every
+GPU from Pascal up at runtime). They are CI-oriented: dispatch
+`targets = x64v3 ...` to build any subset. See [ADD-A-TARGET.md](ADD-A-TARGET.md)
+for the full how-to.Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 (PL_API_VER >= 370, shaderc SPIR-V, statically embedded libdovi) +
 custom FFmpeg (native `dovi_split` BSF). Full D3D11/WASAPI/Vulkan/
 gpu-next.
