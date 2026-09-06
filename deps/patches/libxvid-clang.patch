@@ -1,0 +1,13 @@
+diff --git a/src/xvid.c b/src/xvid.c
+index 824b792..f0e7d19 100644
+--- a/src/xvid.c
++++ b/src/xvid.c
+@@ -703,7 +703,7 @@ xvid_gbl_info(xvid_gbl_info_t * info)
+ 	info->cpu_flags = detect_cpu_flags();
+ 	info->num_threads = 0; /* single-thread */
+ 
+-#if defined(_WIN32)
++#if defined(_MSC_VER) /* clang/gcc-win: SYSTEM_INFO block is MSVC-only */
+ 
+   {
+ 	SYSTEM_INFO siSysInfo;

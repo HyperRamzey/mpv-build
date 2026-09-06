@@ -7,9 +7,12 @@
 /libplacebo-zn2/
 /libplacebo-zn3/
 /libplacebo-11700/
+/libplacebo-3050/
 /install-zn3/
 /install-zn2/
 /install-11700/
+/install-3050/
+/install-14600/
 
 # logs
 /logs/
@@ -27,7 +30,9 @@
 /resume-*.sh
 /diag-placebo.sh
 /run-tail*.sh
+/run-14600-stage*.sh
 /fix-mpv-link.sh
+/fix-pilens-grammars.ps1
 /e2e-3050.sh
 /syntax-check-all.sh
 /audit-fresh-clone.sh

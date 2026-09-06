@@ -1,0 +1,44 @@
+diff --git a/src/hdf/dataobject.c b/src/hdf/dataobject.c
+index 1ccf089..122ec44 100644
+--- a/src/hdf/dataobject.c
++++ b/src/hdf/dataobject.c
+@@ -217,7 +217,7 @@ static int readOHDRHeaderMessageDatatype(struct READER *reader,
+ 
+   dt->class_bit_field = (uint32_t)readValue(reader, 3);
+   dt->size = (uint32_t)readValue(reader, 4);
+-  if (dt->size > 64)
++  if (dt->size > 4096) /* long fixed-string attributes are legitimate */
+     return MYSOFA_UNSUPPORTED_FORMAT; // LCOV_EXCL_LINE
+ 
+   switch (dt->class_and_version & 0xf) {
+@@ -507,7 +507,7 @@ static int readOHDRHeaderMessageDataLayout(struct READER *reader,
+         free(data->data);
+         data->data = NULL;
+       }
+-      if (data_size > 0x10000000)
++      if (data_size > 0x7FFF0000ULL) /* large BRIRs up to ~2GB; mysofa_read returns int */
+         return MYSOFA_INVALID_FORMAT;
+       data->data_len = data_size;
+       data->data = calloc(1, data_size);
+@@ -890,7 +890,7 @@ static int readOHDRHeaderMessageContinue(struct READER *reader,
+ 
+   offset = readValue(reader, reader->superblock.size_of_offsets);
+   length = readValue(reader, reader->superblock.size_of_lengths);
+-  if (offset > 0x2000000 || length > 0x10000000)
++  if (offset > 0x7FFF0000ULL || length > 0x10000000)
+     return MYSOFA_UNSUPPORTED_FORMAT; // LCOV_EXCL_LINE
+ 
+   mylog(" continue %08" PRIX64 " %08" PRIX64 "\n", offset, length);
+diff --git a/src/hdf/fractalhead.c b/src/hdf/fractalhead.c
+index 6787053..a6bf8c4 100644
+--- a/src/hdf/fractalhead.c
++++ b/src/hdf/fractalhead.c
+@@ -110,7 +110,7 @@ static int directblockRead(struct READER *reader, struct DATAOBJECT *dataobject,
+     typeandversion = (uint8_t)mysofa_getc(reader);
+     offset = readValue(reader, offset_size);
+     length = readValue(reader, length_size);
+-    if (offset > 0x10000000 || length > 0x10000000)
++    if (offset > 0x7FFF0000ULL || length > 0x10000000)
+       return MYSOFA_UNSUPPORTED_FORMAT; // LCOV_EXCL_LINE
+ 
+     mylog(" %d %4" PRIX64 " %" PRIX64 " %08lX\n", typeandversion, offset,

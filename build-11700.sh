@@ -46,6 +46,7 @@ rm -rf "$PREFIX"    # clean output prefix: never ship stale DLLs
 CC=clang CXX=clang++ /clang64/bin/meson setup "$BUILD_DIR" \
   --prefix="$PREFIX" \
   --default-library=shared \
+  -Dprefer_static=true \
   -Dlibmpv=true \
   -Dcplayer=true \
   -Dwasapi=enabled \
@@ -114,8 +115,8 @@ CC=clang CXX=clang++ /clang64/bin/meson setup "$BUILD_DIR" \
   -Dbuild-date=true \
   -Dc_args="$OPT" \
   -Dcpp_args="$OPT" \
-  -Dc_link_args="-O3 -flto=thin -Wl,--gc-sections" \
-  -Dcpp_link_args="-O3 -flto=thin -Wl,--gc-sections" \
+  -Dc_link_args="-O3 -flto=thin -static -Wl,--gc-sections" \
+  -Dcpp_link_args="-O3 -flto=thin -static -Wl,--gc-sections" \
   -Db_lto=true \
   -Db_lto_mode=thin \
   --buildtype=release \

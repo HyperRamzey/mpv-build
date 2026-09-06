@@ -1,8 +1,11 @@
 #!/bin/bash
 # ==============================================================================
-# Build libplacebo for target 3050 (znver2 CPU) — self-hosted deps, installs to deps-3050
-# Required for Dolby Vision Profile 7 FEL (PL_API_VER >= 370).
-# GLSL->SPIR-V via self-built shaderc (shared; bundles spirv-opt); libdovi best-effort (auto).
+# Build libplacebo for target 3050 (znver2 CPU) — STATIC install into deps-3050.
+# Required for Dolby Vision P7 FEL (PL_API_VER >= 370). The static archive is
+# embedded directly into mpv.exe / libmpv-2.dll / ffmpeg.exe, so no
+# libplacebo DLL ships in the bundles.
+# GLSL->SPIR-V via self-built shaderc static combined archive; libdovi
+# static (embedded; RPU parsing for the FEL EL); spirv-cross static c-abi.
 # ==============================================================================
 set -euo pipefail
 SRC=/g/mpv-build/libplacebo-src
@@ -22,6 +25,7 @@ rm -rf _build
 
 /clang64/bin/meson setup _build \
   --prefix="$DEPS" \
+  --default-library=static \
   -Dvulkan=enabled -Dd3d11=enabled -Dopengl=enabled -Dlcms=enabled \
   -Ddovi=enabled -Dlibdovi=auto -Dshaderc=enabled -Dglslang=disabled \
   -Ddemos=false -Dtests=false -Dbench=false -Dfuzz=false -Dunwind=disabled -Dcmake_prefix_path="$DEPS" -Dvulkan-sdk="$DEPS" -Dprefer_static=true \
@@ -31,6 +35,10 @@ rm -rf _build
 
 /clang64/bin/meson compile -C _build
 /clang64/bin/meson install -C _build
+# static-first policy: libplacebo is embedded into consumers, never a DLL
+/g/deps-build/sanitize-prefix.sh "$DEPS"
 PL_API_VER=$(grep -oP '#define PL_API_VER \K\d+' "$DEPS/include/libplacebo/config.h" 2>/dev/null || echo "0")
+grep -q "PL_HAVE_LIBDOVI 1" "$DEPS/include/libplacebo/config.h" \
+  || { echo "ERROR: libplacebo built WITHOUT libdovi — DoVi P7 FEL RPU parsing unavailable"; exit 1; }
 echo "libplacebo 3050: PL_API_VER=$PL_API_VER -> $DEPS"
 [ "$PL_API_VER" -ge 370 ] && echo "OK: FEL API available" || { echo "ERROR: PL_API_VER < 370"; exit 1; }

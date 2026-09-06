@@ -1,0 +1,13 @@
+# upstream FFmpeg clone + build outputs
+/ffmpeg/
+/install/
+/install-zn2/
+/install-11700/
+/install-3050/
+/install-14600/
+
+# logs
+*.log
+
+# local test artifacts
+/test_out.mov

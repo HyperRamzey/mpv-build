@@ -1,9 +1,17 @@
 # mpv Custom Build — G:\mpv-build + G:\ffmpeg-build + G:\deps-build
 
-Self-compiled mpv + libmpv for four CPU targets, built with clang 22
+Self-compiled mpv + libmpv for FIVE CPU targets, built with clang 22
 (MSYS2 CLANG64). **ALL external libraries are self-compiled per-target**
 (static-first) from latest git masters via the G:\deps-build framework —
 no MSYS2 media packages are linked.
+
+> **2-repo model**: everything needed to build is vendored INSIDE this
+> repo — `deps/` (the dependency framework) and `ffmpeg-scripts/` (the
+> FFmpeg per-target build scripts). CI materializes them to the hardcoded
+> /g/deps-build + /g/ffmpeg-build paths (see .github/workflows/release.yml).
+> The local machine may keep the historical separate checkouts at
+> G:\deps-build / G:\ffmpeg-build (they are now materialized copies of this
+> repo's folds); the ONLY other repo is ffmpeg-releases (FFmpeg-only CI).
 
 | Target  | CPU               | GPU          | CUDA arch |
 |---------|-------------------|--------------|-----------|
@@ -11,6 +19,7 @@ no MSYS2 media packages are linked.
 | zn2     | Zen2 (znver2)     | GTX 1650M (Pascal)   | sm_75   |
 | 11700   | Intel i7-11700 (rocketlake) | RTX 4080 (Ada) | sm_89  |
 | 3050    | Zen2 (znver2)     | RTX 3050M (Ampere)   | sm_86   |
+| 14600   | i5-14600 (raptorlake) | RTX 50-series (Blackwell) | sm_120a |
 
 Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 (PL_API_VER >= 370) + custom FFmpeg. Full D3D11/WASAPI/Vulkan/gpu-next.
@@ -18,38 +27,35 @@ Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 ## Layout
 
 ```
-G:\deps-build\                 THE DEP FRAMEWORK (~45 self-compiled libs)
-├── common.sh                  target env (OPT flags), build-system drivers
-├── recipes/*.sh               one file per lib: GIT_URL + BUILD()
-├── build-one.sh <target> <lib>
-├── build-deps.sh [targets]    tiered full matrix; stamp-cached (git HEAD)
-├── pull-all.sh                git pull --ff-only all dep clones
-├── patches/                   local patches (libmysofa-large-files.patch!)
-├── src/<lib>/                 git clones (submodules where needed)
-├── build/<target>/<lib>/      out-of-tree build dirs
-├── deps-<zn3|zn2|11700|3050>/ MERGED per-target prefix (bin/lib/include/pkgconfig)
-└── logs/                      per-lib per-target build logs
-
-G:\mpv-build\
+G:\mpv-build\                 THE ONE BUILD REPO (self-contained)
 ├── mpv\                       mpv git clone
 ├── libplacebo-src\            libplacebo git clone
-├── build-libplacebo-<t>.sh    → installs INTO deps-<t>
+├── deps\                      VENDORED dependency framework (fold of the
+│                              old deps-build repo; CI copies this to
+│                              /g/deps-build — "materialize" step)
+│   ├── common.sh              target env (OPT flags), build-system drivers
+│   ├── recipes/*.sh           one file per lib: GIT_URL + BUILD()
+│   ├── patches/               local patches (libmysofa-large-files!)
+│   ├── build-one.sh / build-deps.sh / pull-all.sh / sanitize-prefix.sh
+├── ffmpeg-scripts\            VENDORED FFmpeg per-target build scripts (fold
+│                              of the old ffmpeg-build repo → /g/ffmpeg-build)
+├── build-libplacebo-<t>.sh    → STATIC libplacebo into deps-<t> (embedded
 ├── build-<t>.sh               mpv per target → install-<t>\bin
-├── build-all.sh               ONE-SCRIPT e2e orchestrator (see below)
+├── build-all.sh               ONE-SCRIPT e2e orchestrator (5 targets)
 ├── build_all.cmd              CMD wrapper
-├── copydlls.sh                DLL closure (deps-<t>/bin + ldd vs /clang64 ONLY;
-│                              never wholesale-copies; ggml/whisper tripwire)
-├── smoke_test.sh              10 checks incl. AI-lib pollution guard
-├── portable-conf\             mpv.conf/fonts.conf/ir.wav → copied into installs
-├── install-<t>\bin\           outputs
+├── copydlls.sh                EXACT-import-closure runtime DLLs (lean)
+├── smoke_test.sh              12 checks (AI-lib guard, VSScript alias,
+│                              dovi_split BSF, ISA-skip for foreign CPUs)
+├── portable-conf\             mpv.conf/fonts.conf/ir.wav + user GLSL → bin
+├── install-<t>\bin\           outputs (17 files: exe/com + libmpv + vulkan
+│                              + VapourSynth runtime + config)
 └── logs, configure-*.log, make-*.log, smoke.log
 
-G:\ffmpeg-build\
-├── ffmpeg\                    FFmpeg git clone
-├── build-<t>.sh               per-target; consumes deps-<t> + installs install[-zn2|-11700|-3050]
-└── install*\bin\              ffmpeg/ffplay/ffprobe per target
-
-G:\ffmpeg-releases\            FFmpeg-only GitHub release pipeline (workflow repo)
+G:\ffmpeg-build\               materialized copy of ffmpeg-scripts/ (live
+└── ffmpeg\                    FFmpeg git clone + install* outputs)
+G:\deps-build\                 materialized copy of deps/ (live: src/,
+└── src/, build/, deps-<t>/    clones, out-of-tree builds, merged prefixes)
+G:\ffmpeg-releases\            FFmpeg-only GitHub release workflow repo
 ```
 
 ## Toolchain
@@ -116,7 +122,7 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
   uchardet libgme libmodplug libsixel dvdcss dvdread dvdnav luajit mujs libarchive frei0r
 - **net**: srt libssh libzmq librtmp
 - **gpu**: vulkan-headers vulkan-loader glslang shaderc spirv-cross opencl-headers
-  opencl-icd-loader ffnvcodec libvpl libdovi* vapoursynth* wat4ff
+  opencl-icd-loader ffnvcodec libvpl libdovi*vapoursynth* wat4ff
 - `*` = BEST_EFFORT (failure doesn't kill the run; downstream auto-disables)
 - libplacebo builds into deps-<t> per target (shaderc route, glslang off).
 - **Apple AAC (`aac_at`)**: FFmpeg `--enable-audiotoolbox` via wat4ff

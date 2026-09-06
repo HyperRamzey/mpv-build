@@ -1,0 +1,10 @@
+# libarchive — cmake, static; all our compression + xml2 + openssl
+GIT_URL="https://github.com/libarchive/libarchive"
+BUILD() {
+	cmake_driver "$SRC_ROOT/$NAME" "$BUILD_DIR/$NAME" \
+		-DENABLE_TEST=OFF -DENABLE_TAR=OFF -DENABLE_CPIO=OFF -DENABLE_CAT=OFF \
+		-DENABLE_OPENSSL=ON -DENABLE_XML2=ON -DENABLE_EXPAT=OFF \
+		-DENABLE_ICONV=ON -DENABLE_NETTLE=OFF -DENABLE_LIBB2=OFF \
+		-DENABLE_LZ4=OFF -DENABLE_ZSTD=ON -DENABLE_MULTITHREADED=OFF \
+		-DZSTD_INCLUDE_DIR="$PREFIX/include" -DZSTD_LIBRARY="$PREFIX/lib/libzstd.a"
+}

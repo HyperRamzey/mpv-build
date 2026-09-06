@@ -1,0 +1,1 @@
+REM Run: set MSYSTEM=CLANG64 && bash -lc /g/ffmpeg-build/run-configure-zn3.sh

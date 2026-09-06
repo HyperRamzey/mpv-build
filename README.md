@@ -1,6 +1,6 @@
 # mpv-build
 
-Self-compiled **mpv + libmpv** for three CPU targets, built with clang
+Self-compiled **mpv + libmpv** for five CPU targets, built with clang
 (MSYS2 CLANG64). All external libraries are self-compiled per-target
 (static-first) from git masters via the companion
 [`deps-build`](https://github.com/HyperRamzey/deps-build) framework —
@@ -12,10 +12,11 @@ no MSYS2 media packages are linked.
 | zn2     | Zen2 (znver2)          | GTX 1650M (Turing)   | sm_75     |
 | 11700   | i7-11700 (rocketlake)  | RTX 4080 (Ada)       | sm_89     |
 | 3050    | Zen2 (znver2)          | RTX 3050M (Ampere)   | sm_86     |
-
+| 14600   | i5-14600 (raptorlake)  | RTX 50-series (Blackwell) | sm_120a |
 Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
-(PL_API_VER >= 370, shaderc SPIR-V) + custom FFmpeg. Full
-D3D11/WASAPI/Vulkan/gpu-next.
+(PL_API_VER >= 370, shaderc SPIR-V, statically embedded libdovi) +
+custom FFmpeg (native `dovi_split` BSF). Full D3D11/WASAPI/Vulkan/
+gpu-next.
 
 > [!CAUTION]
 > **Binaries produced by these scripts are NOT redistributable.**
@@ -23,17 +24,28 @@ D3D11/WASAPI/Vulkan/gpu-next.
 > --enable-nonfree` and links GPL codecs (x264, x265, xvid, …) plus the
 > nonfree Fraunhofer FDK-AAC encoder. See [NOTICE.md](NOTICE.md).
 
+## Lean static linkage
+
+mpv.exe and libmpv-2.dll statically embed libplacebo (with libdovi),
+shaderc, spirv-cross, SDL2, libzmq, xevd/xeve, libunibreak, bzip2 and
+the full libc++/libunwind C++ runtime. The only runtime DLLs shipped
+besides the binaries are `vulkan-1.dll` (no static Vulkan loader on
+Windows) and the VapourSynth frameserver DLLs (dlopen'd, with a
+`VSScript.dll` alias so mpv/ffmpeg find them by their probe name).
+
 ## Layout
 
 - `build-all.sh` — one-script end-to-end orchestrator
-  (clean → pull all sources → deps ×3 → libplacebo ×3 → FFmpeg ×3 →
-  mpv ×3 → verification). Driven by `build_all.cmd`.
+  (clean → pull all sources → deps ×5 → libplacebo ×5 → FFmpeg ×5 →
+  mpv ×5 → verification). Driven by `build_all.cmd`.
 - `build-<target>.sh` — mpv per target → `install-<target>\bin`
-- `build-libplacebo-<target>.sh` — libplacebo into the per-target deps
-  prefix (shaderc enabled, glslang disabled)
-- `copydlls.sh` — DLL closure for an install dir (deps prefix + ldd vs
-  `/clang64` only; hard-fails if ggml/whisper files appear)
-- `smoke_test.sh` — 10 post-build checks incl. AI-lib pollution guard
+- `build-libplacebo-<target>.sh` — STATIC libplacebo into the per-target
+  deps prefix (embedded into mpv/ffmpeg; no libplacebo DLL ships)
+- `copydlls.sh` — exact-import-closure runtime DLLs for an install dir
+  (vulkan-1.dll + VapourSynth set + imported clang64 runtime only;
+  hard-fails if ggml/whisper files appear)
+- `smoke_test.sh` — 12 post-build checks incl. AI-lib pollution guard,
+  VapourSynth VSScript.dll alias and ffmpeg dovi_split BSF presence
 - `portable-conf/` — `mpv.conf` / `fonts.conf` / `ir.wav` copied into
   the installs
 - `.github/workflows/release.yml` — GitHub Actions pipeline mirroring
@@ -42,17 +54,27 @@ D3D11/WASAPI/Vulkan/gpu-next.
 
 ## Companion repositories
 
-The CI pipeline and the local layout expect three sibling checkouts:
+The build system is TWO repos total. This repo is **self-contained** —
+it vendors the dependency framework (`deps/`, the fold of the old
+deps-build repo) and the FFmpeg per-target build scripts
+(`ffmpeg-scripts/`, the fold of the old ffmpeg-build repo). CI
+materializes both folds to the hardcoded `/g/deps-build` +
+`/g/ffmpeg-build` paths, so every script runs byte-identical to local:
 
 ```
-<g-root>/mpv-build       <- this repo
-<g-root>/ffmpeg-build    <- FFmpeg per-target build scripts
-<g-root>/deps-build      <- dependency framework (recipes, patches)
+<repo> mpv-build        <- THIS repo (everything: mpv scripts + deps/ +
+                           ffmpeg-scripts/ + workflows + releases)
+<repo> ffmpeg-releases  <- FFmpeg-only release workflow (checks out
+                           mpv-build the same self-contained way)
 ```
 
-Locally they live at `G:\mpv-build`, `G:\ffmpeg-build`,
-`G:\deps-build` (paths are hardcoded in the scripts; CI recreates the
-layout with `subst G:`).
+Locally the checkouts live at `G:\mpv-build`, `G:\ffmpeg-releases`,
+with `G:\deps-build` / `G:\ffmpeg-build` as the materialized (copied)
+working trees carrying the source clones, build dirs and prefixes.
+
+```powershell
+cd G:\mpv-build && build_all.cmd   # full e2e for all five targets
+```
 
 ## Routine rebuild
 
