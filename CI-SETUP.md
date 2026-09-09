@@ -20,7 +20,7 @@ On the runner, every job:
 2. *materializes* the folds: `deps/ -> g/deps-build`,
    `ffmpeg-scripts/ -> g/ffmpeg-build`,
 3. maps the drive with `subst G: <workspace>\g` — all build scripts
-   hardcode `/g/mpv-build`, `/g/ffmpeg-build`, `/g/deps-build` and
+   hardcode `/g/media-build/mpv-build`, `/g/media-build/ffmpeg-build`, `/g/media-build/deps-build` and
    `/clang64/...` paths, so they run verbatim, byte-identical to local.
 
 MSYS2 is installed to `C:\msys64` so `/clang64` resolves exactly like on
@@ -32,14 +32,14 @@ cargo-c, pkgconf, autotools chain, gperf/flex/bison, gettext).
 ```powershell
 # mpv-build (contains everything: scripts + deps/ + ffmpeg-scripts/
 #           + the workflow)
-cd G:\mpv-build
+cd G:\media-build\mpv-build
 git add -A
 git commit -m "2-repo model: vendor deps/ + ffmpeg-scripts/; 14600 target;
                lean static linkage; configurable CI targets"
 git push origin main
 
 # ffmpeg-releases (workflow-only repo)
-cd G:\ffmpeg-releases
+cd G:\media-build\ffmpeg-releases
 git add -A
 git commit -m "2-repo model: materialize mpv-build folds; 14600 target"
 git push origin main
@@ -48,7 +48,7 @@ git push origin main
 The historical `deps-build` / `ffmpeg-build` sibling repos are no longer
 required by CI (the folds supersede them). They can be archived or kept
 as local-only working trees; local builds keep working against
-`G:\deps-build` / `G:\ffmpeg-build`, which the materialized copies
+`G:\media-build\deps-build` / `G:\media-build\ffmpeg-build`, which the materialized copies
 occupy.
 
 ## Triggers
@@ -56,12 +56,14 @@ occupy.
 - **Push a tag** `v*` → full build + GitHub Release under that tag
   (mpv zips from mpv-build, ffmpeg zips from ffmpeg-releases).
 - **Actions → release → Run workflow** → full build with knobs:
-  - `targets` — space-separated subset (default: all five:
-    `zn3 zn2 11700 3050 14600`; e.g. just `14600` for one target)
+  - `targets` — space-separated subset (default: all eight:
+    `zn3 zn2 11700 3050 14600 x64v2 x64v3 x64v4`; e.g. just `14600`)
   - `force_deps` — rebuild all dependencies (ignore stamp cache)
   - `deps_lto` — thin-LTO the dependency libs (default on)
   - `release_tag` — optional explicit tag; otherwise a
     `build-<UTC stamp>` tag is auto-created per successful run
+- **Weekly schedule** — the workflow runs every week automatically
+  (Sunday 03:00 UTC cron) and posts a release like any other run.
 - The release bodies carry the prominent NOT-REDISTRIBUTABLE notice.
 
 ## Runner + toolchain notes

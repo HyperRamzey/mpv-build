@@ -1,7 +1,7 @@
 #!/bin/bash
 # extend librtmp patch: handshake.h HMAC_CTX (stack value) -> pointer API
 set -e
-cd /g/deps-build/src/librtmp
+cd /g/media-build/deps-build/src/librtmp
 
 python - <<'PYEOF'
 p = "librtmp/handshake.h"
@@ -20,5 +20,5 @@ open(p, "w", encoding="utf-8", errors="surrogateescape").write(s)
 print("handshake.h patched, %d field(s)" % n)
 PYEOF
 
-git diff > /g/deps-build/patches/librtmp-openssl3.patch
+git diff > /g/media-build/deps-build/patches/librtmp-openssl3.patch
 echo done

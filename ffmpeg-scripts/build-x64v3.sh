@@ -1,16 +1,16 @@
 #!/bin/bash
 # FFmpeg build for x64v3 (haswell / allcuda — runs on every NVIDIA GPU) — clang 22 / CLANG64
-# All external libs SELF-COMPILED per-target via G:\deps-build (static-first).
+# All external libs SELF-COMPILED per-target via G:\media-build\deps-build (static-first).
 # STATIC exe linkage: ffmpeg.exe/ffplay.exe/ffprobe.exe embed libplacebo
 # (with libdovi), shaderc, spirv-cross, SDL2, zmq, xevd/xeve, unibreak, bz2,
 # libc++ (fully static C++ runtime). Shipped runtime DLLs: vulkan-1.dll +
 # the VapourSynth frameserver set (dlopen'd).
 set -eo pipefail
 export MSYSTEM=CLANG64
-SRC=/g/ffmpeg-build/ffmpeg
-PREFIX=/g/ffmpeg-build/install-x64v3
-LOG=/g/ffmpeg-build/configure-x64v3.log
-DEPS=/g/deps-build/deps-x64v3
+SRC=/g/media-build/ffmpeg-build/ffmpeg
+PREFIX=/g/media-build/ffmpeg-build/install-x64v3
+LOG=/g/media-build/ffmpeg-build/configure-x64v3.log
+DEPS=/g/media-build/deps-build/deps-x64v3
 cd "$SRC"
 
 export PATH="/clang64/bin:/usr/bin:/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3/bin:$PATH"
@@ -70,7 +70,7 @@ echo "=== FFmpeg configure (haswell / sm_120a) ==="
 
 echo "=== CONFIGURE DONE ==="
 echo "=== Compiling (make -j14) ==="
-make LD="$DEPS/wat4ff_ld" WAT4FF_TRUELD=clang -j14 2>&1 | tee /g/ffmpeg-build/make-x64v3.log | grep -E '^(CC|CXX|LD|CUDA|error|Error|warning:)' | tail -5
+make LD="$DEPS/wat4ff_ld" WAT4FF_TRUELD=clang -j14 2>&1 | tee /g/media-build/ffmpeg-build/make-x64v3.log | grep -E '^(CC|CXX|LD|CUDA|error|Error|warning:)' | tail -5
 echo "=== MAKE EXIT: $? ==="
 make install 2>&1 | tail -3
 # aac_at: -framework is Darwin syntax; Windows consumers (mpv meson) must
@@ -79,5 +79,5 @@ sed -i "s/-framework AudioToolbox/-lwat4ff/g" "$PREFIX"/lib/pkgconfig/*.pc
 # scrub -lstdc++ residue (vvenc/xeve upstream pcs): the token resolves
 # against the MSYS cygwin toolchain, not our libc++ mingw one
 sed -i "s/ -lstdc++//g" "$PREFIX"/lib/pkgconfig/*.pc
-/g/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
+/g/media-build/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
 echo "=== FFmpeg x64v3 installed to $PREFIX ==="

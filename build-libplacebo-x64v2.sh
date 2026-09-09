@@ -8,9 +8,9 @@
 # static (embedded; RPU parsing for the FEL EL); spirv-cross static c-abi.
 # ==============================================================================
 set -euo pipefail
-SRC=/g/mpv-build/libplacebo-src
-DEPS=/g/deps-build/deps-x64v2
-LOG=/g/mpv-build/configure-libplacebo-x64v2.log
+SRC=/g/media-build/mpv-build/libplacebo-src
+DEPS=/g/media-build/deps-build/deps-x64v2
+LOG=/g/media-build/mpv-build/configure-libplacebo-x64v2.log
 OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
 if [ ! -d "$SRC/.git" ]; then
@@ -38,7 +38,7 @@ rm -rf _build
 /clang64/bin/meson compile -C _build
 /clang64/bin/meson install -C _build
 # static-first policy: libplacebo is embedded into consumers, never a DLL
-/g/deps-build/sanitize-prefix.sh "$DEPS"
+/g/media-build/deps-build/sanitize-prefix.sh "$DEPS"
 PL_API_VER=$(grep -oP '#define PL_API_VER \K\d+' "$DEPS/include/libplacebo/config.h" 2>/dev/null || echo "0")
 grep -q "PL_HAVE_LIBDOVI 1" "$DEPS/include/libplacebo/config.h" \
   || { echo "ERROR: libplacebo built WITHOUT libdovi — DoVi P7 FEL RPU parsing unavailable"; exit 1; }

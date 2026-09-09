@@ -2,7 +2,8 @@
 # ============================================================================
 # release.yml — GitHub Actions pipeline mirroring the LOCAL build flow 1:1
 #
-# Local orchestrator: G:\mpv-build\build-all.sh
+# Local orchestrator: G:\media-build\mpv-build\build-all.sh (driven
+# by the consolidated root entry point G:\media-build\build_all.bat)
 #   step 0  clean                    -> CI runners are always fresh (no-op)
 #   step 1  git pull ALL sources     -> job: sync-sources
 #   step 2  deps x5 (build-deps.sh)  -> job: deps   (matrix from setup job)
@@ -13,16 +14,16 @@
 #
 # The SAME scripts are executed verbatim (build-deps.sh,
 # build-libplacebo-*.sh, ffmpeg build-*.sh, mpv build-*.sh, copydlls.sh,
-# smoke_test.sh). They hardcode /g/mpv-build, /g/ffmpeg-build,
-# /g/deps-build and /clang64/... paths, so the runner recreates that
+# smoke_test.sh). They hardcode /g/media-build/mpv-build,
+# /g/media-build/deps-build and /clang64/... paths, so the runner recreates that
 # layout:
 #   * ONE repo checkout: this repo (mpv-build) is self-contained — it
 #     vendors the dependency framework in deps/ and the FFmpeg per-target
 #     build scripts in ffmpeg-scripts/
-#   * a materialize step copies deps/ -> g/deps-build and
-#     ffmpeg-scripts/ -> g/ffmpeg-build, so every hardcoded /g/... path
-#     resolves exactly like on the local machine
-#   * `subst G: <workspace>\g`  =>  MSYS2 sees /g/mpv-build etc.
+#   * a materialize step copies deps/ -> g/media-build/deps-build and
+#     ffmpeg-scripts/ -> g/media-build/ffmpeg-build (every hardcoded
+#     /g/... path resolves exactly like on the local machine)
+#   * `subst G: <workspace>\g`  =>  MSYS2 sees /g/media-build/mpv-build etc.
 #   * MSYS2 is installed to C:\msys64 so /clang64 resolves (as locally)
 #
 # Companion repo (the ONLY other repo needed): HyperRamzey/ffmpeg-releases
@@ -82,6 +83,11 @@ name: release
   push:
     tags:
       - "v*"
+  schedule:
+    # weekly full rebuild + release: Sundays 03:00 UTC (steady-state load
+    # trough; avoids the top-of-hour GH scheduler crunch). All targets,
+    # stamp-cached deps, posts a release like any other run.
+    - cron: "0 3 * * 0"
 
 permissions:
   contents: write
@@ -182,15 +188,14 @@ jobs:
       - name: "Check out mpv-build (self-contained: deps/ + ffmpeg-scripts/)"
         uses: actions/checkout@v6
         with:
-          path: g/mpv-build
+          path: g/media-build/mpv-build
       - name: Materialize deps-build + ffmpeg-build from in-repo copies
         shell: bash
         run: |
           set -euo pipefail
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/deps" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/deps-build"
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/ffmpeg-scripts" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/ffmpeg-build"
+          w="$(cygpath -u "$GITHUB_WORKSPACE")/g/media-build"
+          cp -r "$w/mpv-build/deps" "$w/deps-build"
+          cp -r "$w/mpv-build/ffmpeg-scripts" "$w/ffmpeg-build"
       - name: "Map G: drive"
         shell: pwsh
         run: |
@@ -198,7 +203,7 @@ jobs:
           cmd /c dir G:\
       - name: Syntax + continuation scan
         shell: bash
-        run: bash /g/mpv-build/check-scripts.sh
+        run: bash /g/media-build/mpv-build/check-scripts.sh
 
   # ==========================================================================
   # build-all.sh STEP 1: git pull EVERYTHING (~90 dep repos + mpv + ffmpeg
@@ -211,15 +216,14 @@ jobs:
       - name: "Check out mpv-build (self-contained: deps/ + ffmpeg-scripts/)"
         uses: actions/checkout@v6
         with:
-          path: g/mpv-build
+          path: g/media-build/mpv-build
       - name: Materialize deps-build + ffmpeg-build from in-repo copies
         shell: bash
         run: |
           set -euo pipefail
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/deps" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/deps-build"
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/ffmpeg-scripts" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/ffmpeg-build"
+          w="$(cygpath -u "$GITHUB_WORKSPACE")/g/media-build"
+          cp -r "$w/mpv-build/deps" "$w/deps-build"
+          cp -r "$w/mpv-build/ffmpeg-scripts" "$w/ffmpeg-build"
       - name: "Map G: drive (scripts use hardcoded /g/... paths)"
         shell: pwsh
         run: |
@@ -229,10 +233,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/src
-            g/mpv-build/mpv
-            g/mpv-build/libplacebo-src
-            g/ffmpeg-build/ffmpeg
+            g/media-build/deps-build/src
+            g/media-build/mpv-build/mpv
+            g/media-build/mpv-build/libplacebo-src
+            g/media-build/ffmpeg-build/ffmpeg
           key: src-${{ env.CACHE_RUN }}
           restore-keys: |
             src-
@@ -243,7 +247,7 @@ jobs:
           # match local machine git config (autocrlf off, LF endings)
           git config --global core.autocrlf false
           git config --global core.eol lf
-          bash /g/deps-build/pull-all.sh
+          bash /g/media-build/deps-build/pull-all.sh
       - name: Pull/clone mpv, FFmpeg, libplacebo (step 1)
         shell: bash
         run: |
@@ -260,17 +264,17 @@ jobs:
               git clone "$url" "$dir"
             fi
           }
-          sync_repo /g/mpv-build/mpv "$MPV_REPO"
-          sync_repo /g/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
-          sync_repo /g/mpv-build/libplacebo-src "$PLACEBO_REPO"
+          sync_repo /g/media-build/mpv-build/mpv "$MPV_REPO"
+          sync_repo /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
+          sync_repo /g/media-build/mpv-build/libplacebo-src "$PLACEBO_REPO"
           # libplacebo needs its 3rdparty submodules (glad python package,
           # fast_float, jinja, markupsafe, Vulkan-Headers) for meson setup
-          git -C /g/mpv-build/libplacebo-src submodule update \
+          git -C /g/media-build/mpv-build/libplacebo-src submodule update \
             --init --recursive
           echo '--- heads ---'
-          git -C /g/mpv-build/mpv log -1 --oneline
-          git -C /g/ffmpeg-build/ffmpeg log -1 --oneline
-          git -C /g/mpv-build/libplacebo-src log -1 --oneline
+          git -C /g/media-build/mpv-build/mpv log -1 --oneline
+          git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline
+          git -C /g/media-build/mpv-build/libplacebo-src log -1 --oneline
 
   # ==========================================================================
   # build-all.sh STEPS 2+3: dependency matrix + libplacebo, per target.
@@ -288,15 +292,14 @@ jobs:
       - name: "Check out mpv-build (self-contained: deps/ + ffmpeg-scripts/)"
         uses: actions/checkout@v6
         with:
-          path: g/mpv-build
+          path: g/media-build/mpv-build
       - name: Materialize deps-build + ffmpeg-build from in-repo copies
         shell: bash
         run: |
           set -euo pipefail
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/deps" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/deps-build"
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/ffmpeg-scripts" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/ffmpeg-build"
+          w="$(cygpath -u "$GITHUB_WORKSPACE")/g/media-build"
+          cp -r "$w/mpv-build/deps" "$w/deps-build"
+          cp -r "$w/mpv-build/ffmpeg-scripts" "$w/ffmpeg-build"
       - name: "Map G: drive"
         shell: pwsh
         run: |
@@ -347,10 +350,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/src
-            g/mpv-build/mpv
-            g/mpv-build/libplacebo-src
-            g/ffmpeg-build/ffmpeg
+            g/media-build/deps-build/src
+            g/media-build/mpv-build/mpv
+            g/media-build/mpv-build/libplacebo-src
+            g/media-build/ffmpeg-build/ffmpeg
           key: src-${{ env.CACHE_RUN }}
           restore-keys: |
             src-
@@ -358,8 +361,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/deps-${{ matrix.target }}
-            g/deps-build/src/*/.built-${{ matrix.target }}
+            g/media-build/deps-build/deps-${{ matrix.target }}
+            g/media-build/deps-build/src/*/.built-${{ matrix.target }}
           key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
           restore-keys: |
             dpfx-${{ matrix.target }}-
@@ -382,26 +385,26 @@ jobs:
           export MSYSTEM=CLANG64
           # mirror build-all.sh knob handling
           if [ "${FORCE_DEPS_INPUT:-0}" = "1" ]; then
-            rm -f /g/deps-build/src/*/.built-*
+            rm -f /g/media-build/deps-build/src/*/.built-*
             export FORCE=1
           fi
           # common.sh defaults DEPS_LTO to 1; only explicit false disables
           if [ "${DEPS_LTO_INPUT:-}" = "false" ]; then
             export DEPS_LTO=0
           fi
-          bash /g/deps-build/build-deps.sh ${{ matrix.target }}
+          bash /g/media-build/deps-build/build-deps.sh ${{ matrix.target }}
       - name: Build libplacebo (build-all.sh step 3)
         shell: msys2 {0}
         run: |
           set -euo pipefail
           export MSYSTEM=CLANG64
-          bash /g/mpv-build/build-libplacebo-${{ matrix.target }}.sh
+          bash /g/media-build/mpv-build/build-libplacebo-${{ matrix.target }}.sh
       - name: Upload dependency logs on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: logs-deps-${{ matrix.target }}
-          path: g/deps-build/logs
+          path: g/media-build/deps-build/logs
           retention-days: 7
           if-no-files-found: ignore
 
@@ -421,13 +424,13 @@ jobs:
       - name: "Check out mpv-build (copydlls + ffmpeg-scripts)"
         uses: actions/checkout@v6
         with:
-          path: g/mpv-build
+          path: g/media-build/mpv-build
       - name: Materialize ffmpeg-build from in-repo copy
         shell: bash
         run: |
           set -euo pipefail
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/ffmpeg-scripts" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/ffmpeg-build"
+          w="$(cygpath -u "$GITHUB_WORKSPACE")/g/media-build"
+          cp -r "$w/mpv-build/ffmpeg-scripts" "$w/ffmpeg-build"
       - name: "Map G: drive"
         shell: pwsh
         run: |
@@ -478,10 +481,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/src
-            g/mpv-build/mpv
-            g/mpv-build/libplacebo-src
-            g/ffmpeg-build/ffmpeg
+            g/media-build/deps-build/src
+            g/media-build/mpv-build/mpv
+            g/media-build/mpv-build/libplacebo-src
+            g/media-build/ffmpeg-build/ffmpeg
           key: src-${{ env.CACHE_RUN }}
           restore-keys: |
             src-
@@ -489,8 +492,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/deps-${{ matrix.target }}
-            g/deps-build/src/*/.built-${{ matrix.target }}
+            g/media-build/deps-build/deps-${{ matrix.target }}
+            g/media-build/deps-build/src/*/.built-${{ matrix.target }}
           key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
           restore-keys: |
             dpfx-${{ matrix.target }}-
@@ -500,20 +503,20 @@ jobs:
           set -euo pipefail
           git config --global core.autocrlf false
           git config --global core.eol lf
-          if [ ! -d /g/ffmpeg-build/ffmpeg/.git ]; then
-            git clone "$FFMPEG_REPO" /g/ffmpeg-build/ffmpeg
+          if [ ! -d /g/media-build/ffmpeg-build/ffmpeg/.git ]; then
+            git clone "$FFMPEG_REPO" /g/media-build/ffmpeg-build/ffmpeg
           fi
       - name: Build FFmpeg (build-all.sh step 4)
         shell: msys2 {0}
         run: |
           set -euo pipefail
           export MSYSTEM=CLANG64
-          bash /g/ffmpeg-build/build-${{ matrix.target }}.sh
+          bash /g/media-build/ffmpeg-build/build-${{ matrix.target }}.sh
       - name: Verify FFmpeg (build-all.sh step 6)
         shell: msys2 {0}
         run: |
           set -euo pipefail
-          FP=/g/ffmpeg-build/${{ matrix.install_dir }}
+          FP=/g/media-build/ffmpeg-build/${{ matrix.install_dir }}
           "$FP/bin/ffmpeg.exe" -version 2>/dev/null | head -1 \
             || { echo "ffmpeg.exe MISSING (${{ matrix.target }})"; exit 1; }
           if compgen -G "$FP/bin/*ggml*" >/dev/null \
@@ -525,13 +528,13 @@ jobs:
       - name: Cache FFmpeg install for the mpv job
         uses: actions/cache@v6
         with:
-          path: g/ffmpeg-build/${{ matrix.install_dir }}
+          path: g/media-build/ffmpeg-build/${{ matrix.install_dir }}
           key: ffinst-${{ matrix.target }}-${{ env.CACHE_RUN }}
       - name: Upload FFmpeg build artifact
         uses: actions/upload-artifact@v6
         with:
           name: ffmpeg-${{ matrix.target }}
-          path: g/ffmpeg-build/${{ matrix.install_dir }}/bin
+          path: g/media-build/ffmpeg-build/${{ matrix.install_dir }}/bin
           retention-days: 30
       - name: Upload FFmpeg logs on failure
         if: failure()
@@ -539,8 +542,8 @@ jobs:
         with:
           name: logs-ffmpeg-${{ matrix.target }}
           path: |
-            g/ffmpeg-build/configure-${{ matrix.target }}.log
-            g/ffmpeg-build/make-${{ matrix.target }}.log
+            g/media-build/ffmpeg-build/configure-${{ matrix.target }}.log
+            g/media-build/ffmpeg-build/make-${{ matrix.target }}.log
           retention-days: 7
           if-no-files-found: ignore
 
@@ -561,15 +564,14 @@ jobs:
       - name: Check out mpv-build
         uses: actions/checkout@v6
         with:
-          path: g/mpv-build
+          path: g/media-build/mpv-build
       - name: Materialize deps-build + ffmpeg-build from in-repo copies
         shell: bash
         run: |
           set -euo pipefail
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/deps" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/deps-build"
-          cp -r "$(cygpath -u "$GITHUB_WORKSPACE")/g/mpv-build/ffmpeg-scripts" \
-             "$(cygpath -u "$GITHUB_WORKSPACE")/g/ffmpeg-build"
+          w="$(cygpath -u "$GITHUB_WORKSPACE")/g/media-build"
+          cp -r "$w/mpv-build/deps" "$w/deps-build"
+          cp -r "$w/mpv-build/ffmpeg-scripts" "$w/ffmpeg-build"
       - name: "Map G: drive"
         shell: pwsh
         run: |
@@ -620,10 +622,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/src
-            g/mpv-build/mpv
-            g/mpv-build/libplacebo-src
-            g/ffmpeg-build/ffmpeg
+            g/media-build/deps-build/src
+            g/media-build/mpv-build/mpv
+            g/media-build/mpv-build/libplacebo-src
+            g/media-build/ffmpeg-build/ffmpeg
           key: src-${{ env.CACHE_RUN }}
           restore-keys: |
             src-
@@ -631,15 +633,15 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            g/deps-build/deps-${{ matrix.target }}
-            g/deps-build/src/*/.built-${{ matrix.target }}
+            g/media-build/deps-build/deps-${{ matrix.target }}
+            g/media-build/deps-build/src/*/.built-${{ matrix.target }}
           key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
           restore-keys: |
             dpfx-${{ matrix.target }}-
       - name: Restore per-target FFmpeg install
         uses: actions/cache@v6
         with:
-          path: g/ffmpeg-build/${{ matrix.install_dir }}
+          path: g/media-build/ffmpeg-build/${{ matrix.install_dir }}
           key: ffinst-${{ matrix.target }}-${{ env.CACHE_RUN }}
           restore-keys: |
             ffinst-${{ matrix.target }}-
@@ -649,22 +651,22 @@ jobs:
           set -euo pipefail
           git config --global core.autocrlf false
           git config --global core.eol lf
-          if [ ! -d /g/mpv-build/mpv/.git ]; then
-            git clone "$MPV_REPO" /g/mpv-build/mpv
+          if [ ! -d /g/media-build/mpv-build/mpv/.git ]; then
+            git clone "$MPV_REPO" /g/media-build/mpv-build/mpv
           fi
       - name: Build mpv (build-all.sh step 5)
         shell: msys2 {0}
         run: |
           set -euo pipefail
           export MSYSTEM=CLANG64
-          bash /g/mpv-build/build-${{ matrix.target }}.sh
+          bash /g/media-build/mpv-build/build-${{ matrix.target }}.sh
       - name: Verify mpv (build-all.sh step 6)
         shell: msys2 {0}
         run: |
           set -euo pipefail
           # mpv.com, not mpv.exe: the GUI-subsystem binary detaches and
           # would make this check vacuous in a headless CI session.
-          MP=/g/mpv-build/${{ matrix.mpv_dir }}/bin
+          MP=/g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin
           out=$(timeout 30 "$MP/mpv.com" --version 2>/dev/null | head -1)
           rc=$?
           if [ -n "$out" ]; then
@@ -691,13 +693,13 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euo pipefail
-          bash /g/mpv-build/smoke_test.sh \
-            "/g/mpv-build/${{ matrix.mpv_dir }}/bin"
+          bash /g/media-build/mpv-build/smoke_test.sh \
+            "/g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin"
       - name: Upload mpv build artifact
         uses: actions/upload-artifact@v6
         with:
           name: mpv-${{ matrix.target }}
-          path: g/mpv-build/${{ matrix.mpv_dir }}/bin
+          path: g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin
           retention-days: 30
       - name: Upload mpv logs on failure
         if: failure()
@@ -705,9 +707,9 @@ jobs:
         with:
           name: logs-mpv-${{ matrix.target }}
           path: |
-            g/mpv-build/configure-${{ matrix.target }}.log
-            g/mpv-build/make-${{ matrix.target }}.log
-            g/mpv-build/smoke.log
+            g/media-build/mpv-build/configure-${{ matrix.target }}.log
+            g/media-build/mpv-build/make-${{ matrix.target }}.log
+            g/media-build/mpv-build/smoke.log
           retention-days: 7
           if-no-files-found: ignore
 
@@ -784,7 +786,7 @@ jobs:
 
             Targets (default eight; configurable per-run via the
             `targets` dispatch input — see workflow definition):
-            - `mpv-zn3` — Ryzen 5700X3D (znver3) + RTX 5070 (Blackwell, sm_120a)
+            - `mpv-zn3` — Ryzen 5700X3D (znver3) + RTX 5070 (sm_120a)
             - `mpv-zn2` — Zen2 (znver2) + GTX 1650M (Pascal, sm_75)
             - `mpv-11700` — i7-11700 (rocketlake) + RTX 4080 (Ada, sm_89)
             - `mpv-3050` — Zen2 (znver2) + RTX 3050M (Ampere, sm_86)

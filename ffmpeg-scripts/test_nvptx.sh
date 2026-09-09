@@ -1,6 +1,6 @@
 #!/bin/bash
 export PATH=/clang64/bin:$PATH
-SRC=/g/ffmpeg-build/ffmpeg
+SRC=/g/media-build/ffmpeg-build/ffmpeg
 cat > /tmp/t.cu <<'EOF'
 extern "C" {
     __global__ void hello(unsigned char *data) {}

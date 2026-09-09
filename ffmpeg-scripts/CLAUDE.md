@@ -1,4 +1,4 @@
-# FFmpeg Custom Build — G:\ffmpeg-build
+# FFmpeg Custom Build — G:\media-build\ffmpeg-build
 
 Custom FFmpeg build optimized for Ryzen 5700X3D (znver3) + RTX 5070 (sm_120),
 compiled with clang 22 (MSYS2 CLANG64), thin-LTO, license tier: **nonfree and
@@ -7,7 +7,7 @@ unredistributable** (libfdk-aac). Do NOT share the binaries publicly.
 ## Layout
 
 ```
-G:\ffmpeg-build\
+G:\media-build\ffmpeg-build\
 ├── ffmpeg\           FFmpeg git clone (github.com/FFmpeg/FFmpeg.git mirror —
 │                     ffmpeg.org git remote is flaky, use the GitHub mirror)
 ├── install\bin\      ffmpeg.exe / ffprobe.exe / ffplay.exe + ~120 runtime DLLs
@@ -29,7 +29,7 @@ G:\ffmpeg-build\
   first, or clang won't be on PATH and configure fails with
   "clang: command not found":
   ```powershell
-  $env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/ffmpeg-build/<script>.sh
+  $env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/media-build/ffmpeg-build/<script>.sh
   ```
 - No CUDA SDK / nvcc needed: CUDA filters compile via clang's NVPTX backend
   (`--enable-cuda-llvm`). NVENC/NVDEC use ffnvcodec headers
@@ -38,10 +38,10 @@ G:\ffmpeg-build\
 ## Rebuild (routine — newer FFmpeg master)
 
 ```powershell
-git -C G:\ffmpeg-build\ffmpeg pull
-$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/ffmpeg-build/build.sh     # configure
-$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/ffmpeg-build/make.sh      # compile+install (~long; thin-LTO link at end)
-$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/ffmpeg-build/copydlls.sh  # refresh DLLs
+git -C G:\media-build\ffmpeg-build\ffmpeg pull
+$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/media-build/ffmpeg-build/build.sh     # configure
+$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/media-build/ffmpeg-build/make.sh      # compile+install (~long; thin-LTO link at end)
+$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -l /g/media-build/ffmpeg-build/copydlls.sh  # refresh DLLs
 ```
 
 After a pull, MSYS2 packages may also need updating first:
@@ -80,15 +80,15 @@ autodetect-component options; don't "fix" them.
 ## Verify after rebuild
 
 ```powershell
-G:\ffmpeg-build\install\bin\ffmpeg.exe -version              # banner shows git date + full configure line
-G:\ffmpeg-build\install\bin\ffmpeg.exe -hide_banner -filters  | Select-String cuda   # expect scale_cuda etc.
-G:\ffmpeg-build\install\bin\ffmpeg.exe -hide_banner -encoders | Select-String nvenc  # expect hevc_nvenc
+G:\media-build\ffmpeg-build\install\bin\ffmpeg.exe -version              # banner shows git date + full configure line
+G:\media-build\ffmpeg-build\install\bin\ffmpeg.exe -hide_banner -filters  | Select-String cuda   # expect scale_cuda etc.
+G:\media-build\ffmpeg-build\install\bin\ffmpeg.exe -hide_banner -encoders | Select-String nvenc  # expect hevc_nvenc
 ```
 
 Real-pipeline smoke test (matches modules/2.py usage in G:\2Stuff2Furious\unik):
 
 ```powershell
-G:\ffmpeg-build\install\bin\ffmpeg.exe -y -hwaccel cuda -hwaccel_output_format cuda `
+G:\media-build\ffmpeg-build\install\bin\ffmpeg.exe -y -hwaccel cuda -hwaccel_output_format cuda `
   -i <any source .mov> -t 3 -vf "scale_cuda=2160:3840:interp_algo=lanczos" `
   -c:v hevc_nvenc -preset p7 -tune uhq -rc constqp -qp 20 -c:a aac out_test.mov
 ```
@@ -100,7 +100,7 @@ re-run copydlls.sh.
 
 - Dynamic build: exe is ~36 MB but that is NOT a stripped-down build — the
   ~70 external libs live in the DLLs (568 filters / 237 encoders / 551 decoders).
-  Folder must stay intact; put `G:\ffmpeg-build\install\bin` on PATH rather than
+  Folder must stay intact; put `G:\media-build\ffmpeg-build\install\bin` on PATH rather than
   copying exes around.
 - git clone from ffmpeg.org fails with "early EOF" — use the GitHub mirror.
 - `spirv-headers not found` configure warning is cosmetic (swscale SPIR-V

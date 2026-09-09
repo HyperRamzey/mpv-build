@@ -13,14 +13,14 @@ set -euo pipefail
 # --- CPU target config ---
 CPU=haswell
 TUNE=haswell
-BUILD_DIR=/g/mpv-build/build-x64v3
-PREFIX=/g/mpv-build/install-x64v3
-LOG=/g/mpv-build/configure-x64v3.log
+BUILD_DIR=/g/media-build/mpv-build/build-x64v3
+PREFIX=/g/media-build/mpv-build/install-x64v3
+LOG=/g/media-build/mpv-build/configure-x64v3.log
 
-# --- Dependency paths (ALL external libs self-compiled per-target in G:\deps-build) ---
-SRC=/g/mpv-build/mpv
-FFMPEG_PREFIX=/g/ffmpeg-build/install-x64v3     # custom FFmpeg w/ dovi_split BSF (x64v3)
-DEPS=/g/deps-build/deps-x64v3                   # self-built deps + static libplacebo (x64v3)
+# --- Dependency paths (ALL external libs self-compiled per-target in G:\media-build\deps-build) ---
+SRC=/g/media-build/mpv-build/mpv
+FFMPEG_PREFIX=/g/media-build/ffmpeg-build/install-x64v3     # custom FFmpeg w/ dovi_split BSF (x64v3)
+DEPS=/g/media-build/deps-build/deps-x64v3                   # self-built deps + static libplacebo (x64v3)
 
 # --- Optimization flags (no fast-math; IEEE semantics required for codec bit-exactness) ---
 OPT="-O3 -march=$CPU -mtune=$TUNE -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
@@ -30,7 +30,7 @@ echo "=== mpv build for target x64v3 (haswell) ($CPU) ==="
 # --- Ensure libplacebo is built (needed for DoVi FEL) ---
 if [ ! -f "$DEPS/include/libplacebo/config.h" ]; then
   echo "libplacebo x64v3 not found — building from source..."
-  /g/mpv-build/build-libplacebo-x64v3.sh
+  /g/media-build/mpv-build/build-libplacebo-x64v3.sh
 fi
 
 cd "$SRC"
@@ -127,7 +127,7 @@ echo "=== CONFIGURE DONE — reviewing key features ==="
 grep -iE 'd3d11|wasapi|vulkan|libmpv|dovi|libplacebo|ffmpeg|cuda|d3d-hwaccel' "$BUILD_DIR/meson-logs/meson-log.txt" | head -20
 
 echo "=== Compiling (ninja -j14) ==="
-/clang64/bin/ninja -C "$BUILD_DIR" -j14 2>&1 | tee /g/mpv-build/make-x64v3.log | tail -10
+/clang64/bin/ninja -C "$BUILD_DIR" -j14 2>&1 | tee /g/media-build/mpv-build/make-x64v3.log | tail -10
 echo "=== COMPILE EXIT: $? ==="
 
 echo "=== Installing ==="
@@ -135,9 +135,9 @@ echo "=== Installing ==="
 echo "=== INSTALL DONE ==="
 
 echo "=== Copying runtime DLLs (lean closure) ==="
-/g/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
+/g/media-build/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
 
 echo "=== Smoke test ==="
-/g/mpv-build/smoke_test.sh "$PREFIX/bin" || echo "WARN: smoke test failed (non-fatal)"
+/g/media-build/mpv-build/smoke_test.sh "$PREFIX/bin" || echo "WARN: smoke test failed (non-fatal)"
 
 echo "=== x64v3 build complete: $PREFIX ==="

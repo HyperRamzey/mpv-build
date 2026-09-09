@@ -42,10 +42,10 @@ deps-build/
 ```powershell
 $env:MSYSTEM='CLANG64'
 # one dep, one target:
-C:\msys64\usr\bin\bash.exe -lc '/g/deps-build/build-one.sh zn3 x265'
+C:\msys64\usr\bin\bash.exe -lc '/g/media-build/deps-build/build-one.sh zn3 x265'
 # force rebuild: FORCE=1 ; skip git sync: SKIP_SYNC=1
 # full matrix (stamp-cached — only repos whose git HEAD moved rebuild):
-C:\msys64\usr\bin\bash.exe -lc '/g/deps-build/build-deps.sh'
+C:\msys64\usr\bin\bash.exe -lc '/g/media-build/deps-build/build-deps.sh'
 ```
 
 ## Dependency matrix (recipes/)

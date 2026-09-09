@@ -39,3 +39,9 @@
 /e2e-3050.sh
 /syntax-check-all.sh
 /audit-fresh-clone.sh
+
+# local-only artifacts of the consolidated media-build tree
+/at-test/
+/ci-logs/
+/install-*.7z
+/verify-at-integration.sh

@@ -5,8 +5,8 @@
 # ==============================================================================
 set +e
 
-PREFIX="${1:-/g/mpv-build/install-zn3/bin}"
-LOG=/g/mpv-build/smoke.log
+PREFIX="${1:-/g/media-build/mpv-build/install-zn3/bin}"
+LOG=/g/media-build/mpv-build/smoke.log
 PASS=0
 FAIL=0
 SKIP=0
@@ -209,9 +209,9 @@ fi
 # it when demuxing profile 7 FEL tracks)
 echo "--- DoVi FEL: ffmpeg dovi_split BSF check ---" | tee -a "$LOG"
 FFP=""
-for c in /g/ffmpeg-build/install/bin/ffmpeg.exe /g/ffmpeg-build/install-zn2/bin/ffmpeg.exe \
-  /g/ffmpeg-build/install-11700/bin/ffmpeg.exe /g/ffmpeg-build/install-3050/bin/ffmpeg.exe \
-  /g/ffmpeg-build/install-14600/bin/ffmpeg.exe; do
+for c in /g/media-build/ffmpeg-build/install/bin/ffmpeg.exe /g/media-build/ffmpeg-build/install-zn2/bin/ffmpeg.exe \
+  /g/media-build/ffmpeg-build/install-11700/bin/ffmpeg.exe /g/media-build/ffmpeg-build/install-3050/bin/ffmpeg.exe \
+  /g/media-build/ffmpeg-build/install-14600/bin/ffmpeg.exe; do
   [ -x "$c" ] && FFP="$c" && break
 done
 if [ -n "$FFP" ]; then

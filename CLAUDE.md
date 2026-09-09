@@ -1,4 +1,4 @@
-# mpv Custom Build — G:\mpv-build + G:\ffmpeg-build + G:\deps-build
+# mpv Custom Build — G:\media-build\mpv-build + G:\media-build\ffmpeg-build + G:\media-build\deps-build
 
 Self-compiled mpv + libmpv for EIGHT build targets (5 hardware + 3
 generic ISA levels), built with clang 22
@@ -9,9 +9,9 @@ no MSYS2 media packages are linked.
 > **2-repo model**: everything needed to build is vendored INSIDE this
 > repo — `deps/` (the dependency framework) and `ffmpeg-scripts/` (the
 > FFmpeg per-target build scripts). CI materializes them to the hardcoded
-> /g/deps-build + /g/ffmpeg-build paths (see .github/workflows/release.yml).
+> /g/media-build/deps-build + /g/media-build/ffmpeg-build paths (see .github/workflows/release.yml).
 > The local machine may keep the historical separate checkouts at
-> G:\deps-build / G:\ffmpeg-build (they are now materialized copies of this
+> G:\media-build\deps-build / G:\media-build\ffmpeg-build (they are now materialized copies of this
 > repo's folds); the ONLY other repo is ffmpeg-releases (FFmpeg-only CI).
 
 | Target  | CPU               | GPU          | CUDA arch |
@@ -36,22 +36,21 @@ Dolby Vision Profile 7 FEL + Atmos via self-compiled libplacebo
 ## Layout
 
 ```
-G:\mpv-build\                 THE ONE BUILD REPO (self-contained)
+G:\media-build\mpv-build\                 THE ONE BUILD REPO (self-contained)
 ├── mpv\                       mpv git clone
 ├── libplacebo-src\            libplacebo git clone
 ├── deps\                      VENDORED dependency framework (fold of the
 │                              old deps-build repo; CI copies this to
-│                              /g/deps-build — "materialize" step)
+│                              /g/media-build/deps-build — "materialize" step)
 │   ├── common.sh              target env (OPT flags), build-system drivers
 │   ├── recipes/*.sh           one file per lib: GIT_URL + BUILD()
 │   ├── patches/               local patches (libmysofa-large-files!)
 │   ├── build-one.sh / build-deps.sh / pull-all.sh / sanitize-prefix.sh
 ├── ffmpeg-scripts\            VENDORED FFmpeg per-target build scripts (fold
-│                              of the old ffmpeg-build repo → /g/ffmpeg-build)
+│                              of the old ffmpeg-build repo → /g/media-build/ffmpeg-build)
 ├── build-libplacebo-<t>.sh    → STATIC libplacebo into deps-<t> (embedded
 ├── build-<t>.sh               mpv per target → install-<t>\bin
-├── build-all.sh               ONE-SCRIPT e2e orchestrator (5 targets)
-├── build_all.cmd              CMD wrapper
+├── build-all.sh               ONE-SCRIPT e2e orchestrator (per TARGETS)
 ├── copydlls.sh                EXACT-import-closure runtime DLLs (lean)
 ├── smoke_test.sh              12 checks (AI-lib guard, VSScript alias,
 │                              dovi_split BSF, ISA-skip for foreign CPUs)
@@ -60,11 +59,14 @@ G:\mpv-build\                 THE ONE BUILD REPO (self-contained)
 │                              + VapourSynth runtime + config)
 └── logs, configure-*.log, make-*.log, smoke.log
 
-G:\ffmpeg-build\               materialized copy of ffmpeg-scripts/ (live
+G:\media-build\ffmpeg-build\               materialized copy of ffmpeg-scripts/ (live
 └── ffmpeg\                    FFmpeg git clone + install* outputs)
-G:\deps-build\                 materialized copy of deps/ (live: src/,
+G:\media-build\deps-build\                 materialized copy of deps/ (live: src/,
 └── src/, build/, deps-<t>/    clones, out-of-tree builds, merged prefixes)
-G:\ffmpeg-releases\            FFmpeg-only GitHub release workflow repo
+G:\media-build\ffmpeg-releases\          FFmpeg-only GitHub release workflow repo
+
+G:\media-build\build_all.bat              THE single visible entry point
+                                          (drives mpv-build/build-all.sh)
 ```
 
 ## Toolchain
@@ -79,18 +81,19 @@ G:\ffmpeg-releases\            FFmpeg-only GitHub release workflow repo
 CRITICAL: every bash invocation MUST set `MSYSTEM=CLANG64`:
 
 ```powershell
-$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -lc '/g/mpv-build/build-all.sh'
+$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -lc '/g/media-build/mpv-build/build-all.sh'
 ```
 
 ## Rebuild (routine)
 
 ```powershell
-# FULL e2e: clean → pull ALL (~48 repos) → deps ×3 → libplacebo ×3 → FFmpeg ×3 → mpv ×3 → verify
-cd G:\mpv-build && build_all.cmd
+# FULL e2e: clean → pull ALL (~48 repos) → deps → libplacebo → FFmpeg → mpv → verify
+cd G:\media-build && build_all.bat
 
-# knobs (env): CLEAN=0 incremental | FORCE_DEPS=1 rebuild all deps |
-#              DEPS_LTO=1 thin-LTO deps (slow) | JOBS=N (default 14)
-$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -lc '/g/mpv-build/build-all.sh'
+# knobs (env): TARGETS="zn3 14600" | CLEAN=0 incremental |
+#              FORCE_DEPS=1 rebuild all deps | DEPS_LTO=1 thin-LTO deps
+#              (slow) | JOBS=N (default 14)
+$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -lc '/g/media-build/mpv-build/build-all.sh'
 ```
 
 Dependency builds are **stamp-cached**: only repos whose git HEAD moved get
@@ -100,7 +103,7 @@ Individual pieces:
 
 ```powershell
 # one dep, one target:
-bash -lc '/g/deps-build/build-one.sh zn3 x265'
+bash -lc '/g/media-build/deps-build/build-one.sh zn3 x265'
 # force: FORCE=1 ; skip sync: SKIP_SYNC=1
 ```
 
@@ -120,7 +123,7 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
   (dead upstream), aribb24/zvbi (superseded by libaribcaption), gsm/rsvg/
   openmpt (no viable git/self-build on Windows), vaapi/vdpau/drm/xlib.
 
-## Self-compiled dependency matrix (G:\deps-build\recipes)
+## Self-compiled dependency matrix (G:\media-build\deps-build\recipes)
 
 - **foundation**: zlib zstd xz brotli expat libiconv libpng libjpeg-turbo lcms2 openssl
 - **audio**: ogg vorbis speexdsp speex opus lame twolame fdk-aac opencore-amr
@@ -150,7 +153,7 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
   offsets at 32 MB / datasets at 256 MB / strings at 64 B — 1 GB ASH BRIR
   exports fail with err 10001. Patch raises the caps; verified: 989 MB
   `Studio-AS-058...sofa` loads in ~1.1 s, filterlength=36000.
-  Upstream issue draft: `G:\deps-build\patches\upstream-issue.md`.
+  Upstream issue draft: `G:\media-build\deps-build\patches\upstream-issue.md`.
 - mpv usage once rebuilt: `mpv --af=lavfi=[sofalizer=sofa=<file>] <media>`
   (BRIRs are time-domain FIR; default sofalizer type=time is correct).
 
@@ -169,10 +172,10 @@ bash -lc '/g/deps-build/build-one.sh zn3 x265'
 ## Verify after rebuild
 
 ```powershell
-G:\mpv-build\install-zn3\bin\mpv.exe -version        # git master + full configure line
-G:\ffmpeg-build\install\bin\ffmpeg.exe -version
-G:\mpv-build\smoke_test.sh G:\mpv-build\install-zn3\bin   # 10 checks, incl. no ggml/whisper
-ldd G:\mpv-build\install-zn3\bin\mpv.exe | Select-String "not found"
+G:\media-build\mpv-build\install-zn3\bin\mpv.exe -version        # git master + full configure line
+G:\media-build\ffmpeg-build\install\bin\ffmpeg.exe -version
+G:\media-build\mpv-build\smoke_test.sh G:\media-build\mpv-build\install-zn3\bin   # 10 checks, incl. no ggml/whisper
+ldd G:\media-build\mpv-build\install-zn3\bin\mpv.exe | Select-String "not found"
 ```
 
 ## Gotchas

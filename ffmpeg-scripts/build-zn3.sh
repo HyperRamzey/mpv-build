@@ -1,12 +1,12 @@
 #!/bin/bash
 # FFmpeg build for Zen3 (znver3 / RTX 5070 sm_120a) — clang 22 / CLANG64
-# All external libs SELF-COMPILED per-target via G:\deps-build (static-first)
+# All external libs SELF-COMPILED per-target via G:\media-build\deps-build (static-first)
 set -eo pipefail
 export MSYSTEM=CLANG64
-SRC=/g/ffmpeg-build/ffmpeg
-PREFIX=/g/ffmpeg-build/install
-LOG=/g/ffmpeg-build/configure-zn3.log
-DEPS=/g/deps-build/deps-zn3
+SRC=/g/media-build/ffmpeg-build/ffmpeg
+PREFIX=/g/media-build/ffmpeg-build/install
+LOG=/g/media-build/ffmpeg-build/configure-zn3.log
+DEPS=/g/media-build/deps-build/deps-zn3
 cd "$SRC"
 
 export PATH="/clang64/bin:/usr/bin:/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3/bin:$PATH"
@@ -66,7 +66,7 @@ echo "=== FFmpeg configure (znver3 / sm_120a) ==="
 
 echo "=== CONFIGURE DONE ==="
 echo "=== Compiling (make -j14) ==="
-make LD="$DEPS/wat4ff_ld" WAT4FF_TRUELD=clang -j14 2>&1 | tee /g/ffmpeg-build/make-zn3.log | grep -E '^(CC|CXX|LD|CUDA|error|Error|warning:)' | tail -5
+make LD="$DEPS/wat4ff_ld" WAT4FF_TRUELD=clang -j14 2>&1 | tee /g/media-build/ffmpeg-build/make-zn3.log | grep -E '^(CC|CXX|LD|CUDA|error|Error|warning:)' | tail -5
 echo "=== MAKE EXIT: $? ==="
 make install 2>&1 | tail -3
 # aac_at: -framework is Darwin syntax; Windows consumers (mpv meson) must
@@ -75,5 +75,5 @@ sed -i "s/-framework AudioToolbox/-lwat4ff/g" "$PREFIX"/lib/pkgconfig/*.pc
 # scrub -lstdc++ residue (vvenc/xeve upstream pcs): the token resolves
 # against the MSYS cygwin toolchain, not our libc++ mingw one
 sed -i "s/ -lstdc++//g" "$PREFIX"/lib/pkgconfig/*.pc
-/g/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
+/g/media-build/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
 echo "=== FFmpeg zn3 installed to $PREFIX ==="

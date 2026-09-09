@@ -45,7 +45,7 @@ accept GCC's generic level names (`x86-64-v2/v3/v4` are rejected);
 use their concrete equivalents with the same ISA floor:
 
 | name | `-march` (clang) | GCC-level equivalent | ISA floor | example CPUs |
-|------|------------------|----------------------|-----------|--------------|
+| ------ | ------------------ | ---------------------- | ----------- | -------------- |
 | `x64v2` | `nehalem` | x86-64-v2 | SSE4.2/POPCNT | Nehalem+, most 2009+ x86-64 |
 | `x64v3` | `haswell` | x86-64-v3 | AVX2/BMI2 | Haswell … Comet Lake, Zen 1..3 |
 | `x64v4` | `skylake-avx512` | x86-64-v4 | AVX-512 | Skylake-X, Zen 4/5, Raptor Lake P-cores |
@@ -80,7 +80,7 @@ sanitize, PL_API_VER ≥ 370 + `PL_HAVE_LIBDOVI` guard) stays identical.
 
 Copy an existing script; change:
 
-- `PREFIX=/g/ffmpeg-build/install-x64v3`, `LOG=`, `DEPS=`
+- `PREFIX=/g/media-build/ffmpeg-build/install-x64v3`, `LOG=`, `DEPS=`
 - `OPT="-O3 -march=x86-64-v3 -mtune=x86-64-v3 ..."`
 - `--cpu=x86-64-v3`
 - **`NVCCFLAGS`** — the CUDA profile:
@@ -115,13 +115,13 @@ Add the target in five spots:
 
 ```bash
 # step 0 clean list
-rm -rf ... /g/mpv-build/build-x64v3
-for d in ... /g/mpv-build/install-x64v3; do
-rm -rf ... /g/ffmpeg-build/install-x64v3
+rm -rf ... /g/media-build/mpv-build/build-x64v3
+for d in ... /g/media-build/mpv-build/install-x64v3; do
+rm -rf ... /g/media-build/ffmpeg-build/install-x64v3
 # step 3 (libplacebo), 4 (ffmpeg), 5 (mpv): one line each
-echo "=== STEP 3/6: libplacebo x64v3 ==="; /g/mpv-build/build-libplacebo-x64v3.sh
+echo "=== STEP 3/6: libplacebo x64v3 ==="; /g/media-build/mpv-build/build-libplacebo-x64v3.sh
 # step 6 verify-map case
-x64v3) FP=/g/ffmpeg-build/install-x64v3; MP=/g/mpv-build/install-x64v3/bin ;;
+x64v3) FP=/g/media-build/ffmpeg-build/install-x64v3; MP=/g/media-build/mpv-build/install-x64v3/bin ;;
 ```
 
 ## 7. CI: `.github/workflows/release.yml` TARGET_TABLE
@@ -149,7 +149,7 @@ repo's folds).
 ## 8. `.gitignore`
 
 `/install-x64v3/` under the root ignores (ffmpeg installs are only
-produced inside `G:\ffmpeg-build`/CI caches, not committed).
+produced inside `G:\media-build\ffmpeg-build`/CI caches, not committed).
 
 ## 9. Docs
 
@@ -160,11 +160,11 @@ Add the row to the target tables in `CLAUDE.md` and `README.md`
 
 ```powershell
 # one dependency, one target — ~minutes, catches target_env/recipe issues
-$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -lc '/g/deps-build/build-one.sh x64v3 x264'
+$env:MSYSTEM='CLANG64'; C:\msys64\usr\bin\bash.exe -lc '/g/media-build/deps-build/build-one.sh x64v3 x264'
 
 # full local chain for the target (deps first, then):
-bash -lc '/g/mpv-build/build-libplacebo-x64v3.sh && /g/ffmpeg-build/build-x64v3.sh && /g/mpv-build/build-x64v3.sh'
-bash -lc '/g/mpv-build/smoke_test.sh /g/mpv-build/install-x64v3/bin'
+bash -lc '/g/media-build/mpv-build/build-libplacebo-x64v3.sh && /g/media-build/ffmpeg-build/build-x64v3.sh && /g/media-build/mpv-build/build-x64v3.sh'
+bash -lc '/g/media-build/mpv-build/smoke_test.sh /g/media-build/mpv-build/install-x64v3/bin'
 ```
 
 Then push and dispatch CI with `targets = x64v3` (or add it to the

@@ -3,11 +3,11 @@
 # cmake package config from our deps prefix (static, C++-runtime-correct)
 # instead of find_library probes that cannot link static C++ libs.
 set -e
-F=G:/mpv-build/libplacebo-src/src/glsl/meson.build
+F=G:/media-build/mpv-build/libplacebo-src/src/glsl/meson.build
 grep -q "deps-build glslang cmake patch" $F && { echo "already patched"; exit 0; }
 
 python3 - <<'PYEOF'
-p = "G:/mpv-build/libplacebo-src/src/glsl/meson.build"
+p = "G:/media-build/mpv-build/libplacebo-src/src/glsl/meson.build"
 s = open(p).read()
 
 old = """  glslang_deps = [
@@ -86,5 +86,5 @@ open(p, "w").write(s)
 print("patched")
 PYEOF
 
-diff -u /g/deps-build/patches/libplacebo-glsl-meson.build.orig $F > /g/deps-build/patches/libplacebo-glslang-cmake.patch || true
-echo "patch saved: $(grep -c '^[+-]' /g/deps-build/patches/libplacebo-glslang-cmake.patch) lines"
+diff -u /g/media-build/deps-build/patches/libplacebo-glsl-meson.build.orig $F > /g/media-build/deps-build/patches/libplacebo-glslang-cmake.patch || true
+echo "patch saved: $(grep -c '^[+-]' /g/media-build/deps-build/patches/libplacebo-glslang-cmake.patch) lines"

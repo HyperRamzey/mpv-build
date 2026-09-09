@@ -1,5 +1,5 @@
---- /g/deps-build/patches/libplacebo-glsl-meson.build.orig	2026-08-26 10:14:56.587029800 +0300
-+++ G:/mpv-build/libplacebo-src/src/glsl/meson.build	2026-08-26 10:20:50.854006200 +0300
+--- /g/media-build/deps-build/patches/libplacebo-glsl-meson.build.orig	2026-08-26 10:14:56.587029800 +0300
++++ G:/media-build/mpv-build/libplacebo-src/src/glsl/meson.build	2026-08-26 10:20:50.854006200 +0300
 @@ -33,53 +33,15 @@
      cxx.find_library('glslang-default-resource-limits', required: false)
    ]

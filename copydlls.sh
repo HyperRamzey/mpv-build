@@ -25,11 +25,11 @@ PREFIX="${1:?usage: copydlls.sh <install-prefix> [deps-prefix]}"
 DEPS_PREFIX="${2:-}"
 
 case "$PREFIX" in
-*zn2*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-zn2}" ;;
-*11700*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-11700}" ;;
-*3050*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-3050}" ;;
-*14600*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-14600}" ;;
-*) DEPS_PREFIX="${DEPS_PREFIX:-/g/deps-build/deps-zn3}" ;;
+*zn2*) DEPS_PREFIX="${DEPS_PREFIX:-/g/media-build/deps-build/deps-zn2}" ;;
+*11700*) DEPS_PREFIX="${DEPS_PREFIX:-/g/media-build/deps-build/deps-11700}" ;;
+*3050*) DEPS_PREFIX="${DEPS_PREFIX:-/g/media-build/deps-build/deps-3050}" ;;
+*14600*) DEPS_PREFIX="${DEPS_PREFIX:-/g/media-build/deps-build/deps-14600}" ;;
+*) DEPS_PREFIX="${DEPS_PREFIX:-/g/media-build/deps-build/deps-zn3}" ;;
 esac
 
 echo "=== copydlls: prefix=$PREFIX deps=$DEPS_PREFIX ==="
@@ -101,7 +101,7 @@ done
 #   bin/mpv/      — mpv's win32 "global" config dir (exe_dir/mpv; the
 #                  fallback when no portable_config dir exists). The mpv.conf
 #                  lavfi-complex/~~/ paths resolve against this dir.
-CONF_SRC="/g/mpv-build/portable-conf"
+CONF_SRC="/g/media-build/mpv-build/portable-conf"
 if [[ -d "$CONF_SRC" ]]; then
 	cp -u "$CONF_SRC"/* "$PREFIX/bin/" 2>/dev/null || true
 	mkdir -p "$PREFIX/bin/mpv"

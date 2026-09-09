@@ -2,7 +2,7 @@
 # make-librtmp-openssl3-patch.sh — one-shot: patch rtmpdump for OpenSSL 3 in the
 # deps-build clone and emit patches/librtmp-openssl3.patch
 set -e
-cd /g/deps-build/src/librtmp
+cd /g/media-build/deps-build/src/librtmp
 
 python - <<'PYEOF'
 p = "librtmp/hashswf.c"
@@ -89,5 +89,5 @@ open(p, "w", encoding="utf-8", errors="surrogateescape").write(s)
 print("dh.h patched")
 PYEOF
 
-git diff > /g/deps-build/patches/librtmp-openssl3.patch
-echo "patch written: $(grep -c '^+' /g/deps-build/patches/librtmp-openssl3.patch) added lines"
+git diff > /g/media-build/deps-build/patches/librtmp-openssl3.patch
+echo "patch written: $(grep -c '^+' /g/media-build/deps-build/patches/librtmp-openssl3.patch) added lines"

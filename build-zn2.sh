@@ -10,14 +10,14 @@ set -euo pipefail
 # --- CPU target config ---
 CPU=znver2
 TUNE=znver2
-BUILD_DIR=/g/mpv-build/build-zn2
-PREFIX=/g/mpv-build/install-zn2
-LOG=/g/mpv-build/configure-zn2.log
+BUILD_DIR=/g/media-build/mpv-build/build-zn2
+PREFIX=/g/media-build/mpv-build/install-zn2
+LOG=/g/media-build/mpv-build/configure-zn2.log
 
-# --- Dependency paths (ALL external libs self-compiled per-target in G:\deps-build) ---
-SRC=/g/mpv-build/mpv
-FFMPEG_PREFIX=/g/ffmpeg-build/install-zn2        # custom FFmpeg w/ dovi_split (zn2)
-DEPS=/g/deps-build/deps-zn2                        # self-built deps + libplacebo (zn2)
+# --- Dependency paths (ALL external libs self-compiled per-target in G:\media-build\deps-build) ---
+SRC=/g/media-build/mpv-build/mpv
+FFMPEG_PREFIX=/g/media-build/ffmpeg-build/install-zn2        # custom FFmpeg w/ dovi_split (zn2)
+DEPS=/g/media-build/deps-build/deps-zn2                        # self-built deps + libplacebo (zn2)
 
 # --- Optimization flags (no fast-math; IEEE semantics required for codec bit-exactness) ---
 OPT="-O3 -march=$CPU -mtune=$TUNE -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
@@ -27,7 +27,7 @@ echo "=== mpv build for Zen2 (znver2) ($CPU) ==="
 # --- Ensure libplacebo is built (needed for DoVi FEL) ---
 if [ ! -f "$DEPS/include/libplacebo/config.h" ]; then
   echo "libplacebo zn3 not found — building from source..."
-  /g/mpv-build/build-libplacebo-zn2.sh
+  /g/media-build/mpv-build/build-libplacebo-zn2.sh
 fi
 
 cd "$SRC"
@@ -126,7 +126,7 @@ echo "=== CONFIGURE DONE — reviewing key features ==="
 grep -iE 'd3d11|wasapi|vulkan|libmpv|dovi|libplacebo|ffmpeg|cuda|d3d-hwaccel' "$BUILD_DIR/meson-logs/meson-log.txt" | head -20
 
 echo "=== Compiling (ninja -j14) ==="
-/clang64/bin/ninja -C "$BUILD_DIR" -j14 2>&1 | tee /g/mpv-build/make-zn2.log | tail -10
+/clang64/bin/ninja -C "$BUILD_DIR" -j14 2>&1 | tee /g/media-build/mpv-build/make-zn2.log | tail -10
 echo "=== COMPILE EXIT: $? ==="
 
 echo "=== Installing ==="
@@ -134,9 +134,9 @@ echo "=== Installing ==="
 echo "=== INSTALL DONE ==="
 
 echo "=== Copying DLL dependency closure ==="
-/g/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
+/g/media-build/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
 
 echo "=== Smoke test ==="
-/g/mpv-build/smoke_test.sh "$PREFIX/bin" || echo "WARN: smoke test failed (non-fatal)"
+/g/media-build/mpv-build/smoke_test.sh "$PREFIX/bin" || echo "WARN: smoke test failed (non-fatal)"
 
 echo "=== Zen2 (znver2) build complete: $PREFIX ==="

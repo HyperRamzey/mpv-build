@@ -1,12 +1,12 @@
 #!/bin/bash
 # FFmpeg build for Intel i7-11700 (rocketlake / RTX 4080 sm_89) — clang 22 / CLANG64
-# All external libs SELF-COMPILED per-target via G:\deps-build (static-first)
+# All external libs SELF-COMPILED per-target via G:\media-build\deps-build (static-first)
 set -eo pipefail
 export MSYSTEM=CLANG64
-SRC=/g/ffmpeg-build/ffmpeg
-PREFIX=/g/ffmpeg-build/install-11700
-LOG=/g/ffmpeg-build/configure-11700.log
-DEPS=/g/deps-build/deps-11700
+SRC=/g/media-build/ffmpeg-build/ffmpeg
+PREFIX=/g/media-build/ffmpeg-build/install-11700
+LOG=/g/media-build/ffmpeg-build/configure-11700.log
+DEPS=/g/media-build/deps-build/deps-11700
 cd "$SRC"
 
 export PATH="/clang64/bin:/usr/bin:/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3/bin:$PATH"
@@ -66,7 +66,7 @@ echo "=== FFmpeg configure (rocketlake / sm_89) ==="
 
 echo "=== CONFIGURE DONE ==="
 echo "=== Compiling (make -j14) ==="
-make LD="$DEPS/wat4ff_ld" WAT4FF_TRUELD=clang -j14 2>&1 | tee /g/ffmpeg-build/make-11700.log | grep -E '^(CC|CXX|LD|CUDA|error|Error|warning:)' | tail -5
+make LD="$DEPS/wat4ff_ld" WAT4FF_TRUELD=clang -j14 2>&1 | tee /g/media-build/ffmpeg-build/make-11700.log | grep -E '^(CC|CXX|LD|CUDA|error|Error|warning:)' | tail -5
 echo "=== MAKE EXIT: $? ==="
 make install 2>&1 | tail -3
 # aac_at: -framework is Darwin syntax; Windows consumers (mpv meson) must
@@ -75,5 +75,5 @@ sed -i "s/-framework AudioToolbox/-lwat4ff/g" "$PREFIX"/lib/pkgconfig/*.pc
 # scrub -lstdc++ residue (vvenc/xeve upstream pcs): the token resolves
 # against the MSYS cygwin toolchain, not our libc++ mingw one
 sed -i "s/ -lstdc++//g" "$PREFIX"/lib/pkgconfig/*.pc
-/g/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
+/g/media-build/mpv-build/copydlls.sh "$PREFIX" "$DEPS"
 echo "=== FFmpeg 11700 installed to $PREFIX ==="

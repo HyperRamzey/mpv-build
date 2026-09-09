@@ -34,7 +34,7 @@ libplacebo builds produced by
 
 - `build-zn3.sh` / `build-zn2.sh` / `build-11700.sh` — per-target
   configure + make + install + DLL closure (calls
-  `/g/mpv-build/copydlls.sh`). Each script wipes its install prefix
+  `/g/media-build/mpv-build/copydlls.sh`). Each script wipes its install prefix
   first so stale DLLs are never shipped.
 - `quick-configure.sh` — fast re-configure helper (WARNING: it does
   `rm -rf ffbuild`; never run between target builds)
@@ -53,7 +53,7 @@ The scripts expect the sibling layout (hardcoded paths):
 
 ```powershell
 $env:MSYSTEM='CLANG64'
-C:\msys64\usr\bin\bash.exe -lc '/g/ffmpeg-build/build-zn3.sh'
+C:\msys64\usr\bin\bash.exe -lc '/g/media-build/ffmpeg-build/build-zn3.sh'
 ```
 
 The full end-to-end flow (deps → libplacebo → FFmpeg → mpv) is
