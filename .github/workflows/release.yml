@@ -525,8 +525,13 @@ jobs:
           # same condition smoke_test reports as SKIP, not FAIL)
           [ -s "$FP/bin/ffmpeg.exe" ] \
             || { echo "ffmpeg.exe MISSING (${{ matrix.target }})"; exit 1; }
+          # Bracket with set +e: ffmpeg.exe SIGILL (rc 132, ISA-less
+          # runner) must NOT kill the step via errexit before rc=$?
+          # can capture it — the WARN branch below handles it.
+          set +e
           out=$(timeout 30 "$FP/bin/ffmpeg.exe" -version 2>/dev/null | head -1)
           rc=$?
+          set -e
           if [ -n "$out" ]; then
             echo "$out"
           elif [ "$rc" = "124" ]; then
@@ -685,8 +690,13 @@ jobs:
           # mpv.com, not mpv.exe: the GUI-subsystem binary detaches and
           # would make this check vacuous in a headless CI session.
           MP=/g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin
+          # Bracket with set +e: mpv.com SIGILL (rc 132, ISA-less
+          # runner) must NOT kill the step via errexit before rc=$?
+          # can capture it — the WARN branch below handles it.
+          set +e
           out=$(timeout 30 "$MP/mpv.com" --version 2>/dev/null | head -1)
           rc=$?
+          set -e
           if [ -n "$out" ]; then
             echo "$out"
           elif [ "$rc" = "124" ]; then

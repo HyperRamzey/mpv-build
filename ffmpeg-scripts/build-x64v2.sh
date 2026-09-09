@@ -19,17 +19,19 @@ export CUDA_PATH="/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3"
 export PKG_CONFIG_PATH="$DEPS/lib/pkgconfig:/clang64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LDFLAGS="-static -L$DEPS/lib -L/clang64/lib ${LDFLAGS:-}"
 
-# nehalem has NO AVX (SSE4.2/128-bit only): prefer-vector-width=256 is
-# ISA-impossible there — the legalizer emits 128-bit-pair IR that crashes
-# the LLVM 22 ThinLTO Register Coalescer (0xC0000005 on rgb2yuv_*), so
-# x64v2 uses 128 (all AVX-capable targets keep 256).
+# x64v2 builds WITHOUT ThinLTO: LLVM 22's Register Coalescer
+# deterministically crashes (0xC0000005) on rgb2yuv_420p10_c under
+# nehalem codegen at ThinLTO link (both repos, every attempt; the
+# width-128 change didn't alter it). Generic-portability target — the
+# no-LTO cost is some cross-module inlining, zero functional change.
+# All 7 AVX-capable targets keep --enable-lto=thin.
 OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=128 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
 # CUDA nvcc flags: sm_120a (Blackwell RTX 50-series), clang NVPTX backend
 NVCCFLAGS="--cuda-gpu-arch=sm_75 -Xclang -target-feature -Xclang +ptx63 -O3"
 # Clean the output prefix FIRST: never ship stale DLLs (old libplacebo etc.)
 rm -rf "$PREFIX"
-if [[ -f ffbuild/config.mak ]]; then make clean; fi  # fresh clones have no config yet
+if [[ -f ffbuild/config.mak ]]; then make clean; fi # fresh clones have no config yet
 echo "=== FFmpeg configure (nehalem / sm_120a) ==="
 ./configure \
 	--prefix="$PREFIX" \
@@ -39,12 +41,12 @@ echo "=== FFmpeg configure (nehalem / sm_120a) ==="
 	--extra-ldflags="-static -Wl,--gc-sections -L$DEPS/lib" --extra-libs="-lcfgmgr32 -lole32 -luuid" \
 	--enable-gpl --enable-version3 --enable-nonfree \
 	--enable-audiotoolbox \
-	--enable-lto=thin --disable-debug --disable-doc \
+	--disable-debug --disable-doc \
 	--enable-ffnvcodec --enable-cuda-llvm --enable-nvenc --enable-nvdec --enable-cuvid \
 	--nvccflags="$NVCCFLAGS" \
 	--enable-opencl --enable-vulkan --enable-libplacebo --enable-libvpl \
 	--enable-libx264 --enable-libx265 --enable-libxvid --enable-libvpx \
---enable-libvvenc --enable-avisynth --enable-liblcevc-dec --enable-liboapv --enable-libsvtjpegxs --enable-libuavs3d --enable-libxevd --enable-libxeve --enable-libsnappy --enable-libqrencode --enable-vapoursynth \
+	--enable-libvvenc --enable-avisynth --enable-liblcevc-dec --enable-liboapv --enable-libsvtjpegxs --enable-libuavs3d --enable-libxevd --enable-libxeve --enable-libsnappy --enable-libqrencode --enable-vapoursynth \
 	--enable-libaom --enable-libdav1d --enable-libsvtav1 \
 	--enable-libopenh264 --enable-libfdk-aac --enable-libmp3lame \
 	--enable-libopus --enable-libvorbis --enable-libspeex \
