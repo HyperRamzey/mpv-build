@@ -19,13 +19,16 @@ export CUDA_PATH="/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3"
 export PKG_CONFIG_PATH="$DEPS/lib/pkgconfig:/clang64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LDFLAGS="-static -L$DEPS/lib -L/clang64/lib ${LDFLAGS:-}"
 
-# x64v2 builds WITHOUT ThinLTO: LLVM 22's Register Coalescer
-# deterministically crashes (0xC0000005) on rgb2yuv_420p10_c under
-# nehalem codegen at ThinLTO link (both repos, every attempt; the
-# width-128 change didn't alter it). Generic-portability target — the
-# no-LTO cost is some cross-module inlining, zero functional change.
-# All 7 AVX-capable targets keep --enable-lto=thin.
-OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=128 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
+# x64v2 builds WITHOUT vectorization: LLVM 22 (MSYS2 22.1.8)
+# crashes the Register Coalescer (0xC0000005) on rgb2yuv_420p10_c
+# in colorspacedsp.c under nehalem codegen — with ThinLTO, width-128
+# ThinLTO, AND width-128 no-LTO (compile-time) — every combination
+# tried. Vectorized <8 x i16> lane coalescing on SSE4.2-only targets
+# is the trigger; the 100+ deps-x64v2 libs vectorize+ThinLTO+nehalem
+# link green, so it's specific to this function's IR shape. FFmpeg's
+# hot paths are hand-written asm; vectorized C fallbacks are cold.
+# All 7 AVX-capable targets keep full vectorization + ThinLTO.
+OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=128 -fno-vectorize -fno-slp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
 # CUDA nvcc flags: sm_120a (Blackwell RTX 50-series), clang NVPTX backend
 NVCCFLAGS="--cuda-gpu-arch=sm_75 -Xclang -target-feature -Xclang +ptx63 -O3"
