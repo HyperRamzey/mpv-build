@@ -23,7 +23,9 @@ FFMPEG_PREFIX=/g/media-build/ffmpeg-build/install-x64v2     # custom FFmpeg w/ d
 DEPS=/g/media-build/deps-build/deps-x64v2                   # self-built deps + static libplacebo (x64v2)
 
 # --- Optimization flags (no fast-math; IEEE semantics required for codec bit-exactness) ---
-OPT="-O3 -march=$CPU -mtune=$TUNE -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
+# nehalem has NO AVX (SSE4.2/128-bit): 256 width is ISA-impossible and
+# crashes LLVM 22 ThinLTO Register Coalescer — x64v2 uses 128.
+OPT="-O3 -march=$CPU -mtune=$TUNE -mprefer-vector-width=128 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
 echo "=== mpv build for target x64v2 (nehalem) ($CPU) ==="
 

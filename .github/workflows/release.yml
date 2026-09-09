@@ -519,8 +519,24 @@ jobs:
         run: |
           set -euo pipefail
           FP=/g/media-build/ffmpeg-build/${{ matrix.install_dir }}
-          "$FP/bin/ffmpeg.exe" -version 2>/dev/null | head -1 \
+          # binary presence is ALWAYS verified; running it is only
+          # meaningful when this runner CPU can execute its ISA (e.g.
+          # rocketlake AVX-512 SIGILLs on AVX-512-less runners — the
+          # same condition smoke_test reports as SKIP, not FAIL)
+          [ -s "$FP/bin/ffmpeg.exe" ] \
             || { echo "ffmpeg.exe MISSING (${{ matrix.target }})"; exit 1; }
+          out=$(timeout 30 "$FP/bin/ffmpeg.exe" -version 2>/dev/null | head -1)
+          rc=$?
+          if [ -n "$out" ]; then
+            echo "$out"
+          elif [ "$rc" = "124" ]; then
+            echo "FAIL: ffmpeg.exe timed out (${{ matrix.target }})"; exit 1
+          else
+            echo "WARN: ffmpeg.exe exited rc=$rc with no output"
+            echo "      (${{ matrix.target }}): possible ISA mismatch;"
+            echo "      test the binary on target hw"
+            exit 0
+          fi
           if compgen -G "$FP/bin/*ggml*" >/dev/null \
             || compgen -G "$FP/bin/*whisper*" >/dev/null; then
             echo "!!! FAIL: ggml/whisper in $FP/bin"

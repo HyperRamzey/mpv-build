@@ -19,7 +19,11 @@ export CUDA_PATH="/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3"
 export PKG_CONFIG_PATH="$DEPS/lib/pkgconfig:/clang64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LDFLAGS="-static -L$DEPS/lib -L/clang64/lib ${LDFLAGS:-}"
 
-OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
+# nehalem has NO AVX (SSE4.2/128-bit only): prefer-vector-width=256 is
+# ISA-impossible there — the legalizer emits 128-bit-pair IR that crashes
+# the LLVM 22 ThinLTO Register Coalescer (0xC0000005 on rgb2yuv_*), so
+# x64v2 uses 128 (all AVX-capable targets keep 256).
+OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=128 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
 # CUDA nvcc flags: sm_120a (Blackwell RTX 50-series), clang NVPTX backend
 NVCCFLAGS="--cuda-gpu-arch=sm_75 -Xclang -target-feature -Xclang +ptx63 -O3"

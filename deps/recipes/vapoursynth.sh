@@ -13,7 +13,7 @@ BUILD() {
 	local croot
 	croot="$(cygpath -m /clang64)"
 	EXTRA_LINK_ARGS="$croot/lib/libc++.a $croot/lib/libunwind.a" \
-	meson_driver "$SRC_ROOT/$NAME" "$BUILD_DIR/$NAME" \
+		meson_driver "$SRC_ROOT/$NAME" "$BUILD_DIR/$NAME" \
 		-Ddefault_library=shared -Denable_x86_asm=true \
 		-Denable_guard_pattern=false
 	# Upstream now installs EVERYTHING into python site-packages (wheel-style
@@ -22,7 +22,10 @@ BUILD() {
 	# deps-<t>/bin), import libs + a sane .pc for completeness.
 	local sp
 	sp="$(ls -d "$PREFIX"/lib/python3.*/site-packages/vapoursynth 2>/dev/null | head -1)"
-	[[ -n "$sp" ]] || { echo "vapoursynth: site-packages dir not found" >>"$LOGF"; return 1; }
+	[[ -n "$sp" ]] || {
+		echo "vapoursynth: site-packages dir not found" >>"$LOGF"
+		return 1
+	}
 	mkdir -p "$PREFIX/include/vapoursynth"
 	cp -f "$sp"/include/*.h "$PREFIX/include/vapoursynth/" >>"$LOGF" 2>&1
 	cp -f "$sp"/*.dll "$PREFIX/bin/" >>"$LOGF" 2>&1
@@ -40,6 +43,6 @@ BUILD() {
 		# (needs -Iincludedir), mpv includes <VSScript4.h> flat (needs
 		# -Iincludedir/vapoursynth). Emit both so either resolves.
 		echo "Cflags: -I\${includedir} -I\${includedir}/vapoursynth"
-	} > "$PREFIX/lib/pkgconfig/vapoursynth.pc"
+	} >"$PREFIX/lib/pkgconfig/vapoursynth.pc"
 }
 BEST_EFFORT=1

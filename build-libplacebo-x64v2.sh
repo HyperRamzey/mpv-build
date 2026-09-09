@@ -11,7 +11,9 @@ set -euo pipefail
 SRC=/g/media-build/mpv-build/libplacebo-src
 DEPS=/g/media-build/deps-build/deps-x64v2
 LOG=/g/media-build/mpv-build/configure-libplacebo-x64v2.log
-OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
+# nehalem: SSE4.2 only (no AVX) — vector width 128; 256 is ISA-impossible
+# (legalized-pair IR crashes LLVM 22 ThinLTO Register Coalescer)
+OPT="-O3 -march=nehalem -mtune=nehalem -mprefer-vector-width=128 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
 if [ ! -d "$SRC/.git" ]; then
   git clone https://code.videolan.org/videolan/libplacebo.git "$SRC"

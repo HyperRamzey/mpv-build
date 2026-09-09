@@ -93,7 +93,20 @@ target_env() {
 
 	export CC=clang CXX=clang++
 	# Max per-target optimization. NO fast-math anywhere (IEEE codec math).
-	OPT="-O3 -march=$ARCH -mtune=$ARCH -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
+	# Vector width must match the ISA: 256 needs AVX (Sandy Bridge+). A
+	# no-AVX target (nehalem/SSE4.2) forced to prefer 256 generates
+	# legalized 128-bit-pair vector IR that crashes the LLVM 22 ThinLTO
+	# Register Coalescer on rgb2yuv_* (0xC0000005) — and is wrong for
+	# the target anyway. So: AVX+ targets prefer 256; SSE-only 128.
+	case $ARCH in
+	nehalem)
+		VW=128
+		;;
+	*)
+		VW=256
+		;;
+	esac
+	OPT="-O3 -march=$ARCH -mtune=$ARCH -mprefer-vector-width=$VW -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 	if [[ "${DEPS_LTO:-1}" == "1" ]]; then
 		OPT+=" -flto=thin"
 	fi
