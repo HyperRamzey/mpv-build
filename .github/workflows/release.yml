@@ -641,6 +641,7 @@ jobs:
             vulkan-headers:p
             vulkan-loader:p
             opencl-headers:p
+            cppwinrt:p
       - name: Restore upstream source clones
         uses: actions/cache@v6
         with:
