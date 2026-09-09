@@ -24,7 +24,9 @@
 #     ffmpeg-scripts/ -> g/media-build/ffmpeg-build (every hardcoded
 #     /g/... path resolves exactly like on the local machine)
 #   * `subst G: <workspace>\g`  =>  MSYS2 sees /g/media-build/mpv-build etc.
-#   * MSYS2 is installed to C:\msys64 so /clang64 resolves (as locally)
+#   * MSYS2 lives wherever setup-msys2 puts it (D:/a/_temp/msys64 on the
+#     runner, C:/msys64 locally); /clang64 self-resolves, and recipes
+#     derive native paths via cygpath -m (never hardcode the root)
 #
 # Companion repo (the ONLY other repo needed): HyperRamzey/ffmpeg-releases
 # — the FFmpeg-only release pipeline, which checks out THIS repo the same

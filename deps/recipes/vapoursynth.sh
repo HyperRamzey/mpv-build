@@ -7,8 +7,12 @@ BUILD() {
 	# embed the STATIC C++ runtime into the shared VS DLLs (EXTRA_LINK_ARGS
 	# flows into meson c/cpp_link_args) so bundles don't need libc++.dll for them.
 	# NOTE: meson hands these to native clang.exe WITHOUT bash path conversion,
-	# so they must be native Windows paths, not MSYS /clang64/... forms.
-	EXTRA_LINK_ARGS="C:/msys64/clang64/lib/libc++.a C:/msys64/clang64/lib/libunwind.a" \
+	# so they must be native Windows paths, not MSYS /clang64/... forms. Derive
+	# the clang64 root via cygpath -m: C:/msys64/clang64 locally, but
+	# D:/a/_temp/msys64/clang64 on the GH runner (a hardcoded C:/ broke CI).
+	local croot
+	croot="$(cygpath -m /clang64)"
+	EXTRA_LINK_ARGS="$croot/lib/libc++.a $croot/lib/libunwind.a" \
 	meson_driver "$SRC_ROOT/$NAME" "$BUILD_DIR/$NAME" \
 		-Ddefault_library=shared -Denable_x86_asm=true \
 		-Denable_guard_pattern=false
