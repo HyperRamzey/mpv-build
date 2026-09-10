@@ -212,7 +212,16 @@ FFP=""
 for c in /g/media-build/ffmpeg-build/install/bin/ffmpeg.exe /g/media-build/ffmpeg-build/install-zn2/bin/ffmpeg.exe \
   /g/media-build/ffmpeg-build/install-11700/bin/ffmpeg.exe /g/media-build/ffmpeg-build/install-3050/bin/ffmpeg.exe \
   /g/media-build/ffmpeg-build/install-14600/bin/ffmpeg.exe; do
-  [ -x "$c" ] && FFP="$c" && break
+  # pick the first candidate that EXECUTES on this host — a foreign-ISA
+  # ffmpeg (e.g. rocketlake AVX-512 on an AVX-512-less runner) SIGILLs
+  # before printing anything, and a silent -bsfs must not read as
+  # "dovi_split missing". Same SKIP-not-FAIL rule as every other
+  # ISA-affected check in this file.
+  [ -x "$c" ] || continue
+  if timeout 15 "$c" -hide_banner -version >/dev/null 2>&1; then
+    FFP="$c"
+    break
+  fi
 done
 if [ -n "$FFP" ]; then
   if "$FFP" -hide_banner -bsfs 2>/dev/null | grep -q "dovi_split"; then
@@ -223,7 +232,8 @@ if [ -n "$FFP" ]; then
     FAIL=$((FAIL + 1))
   fi
 else
-  echo "WARN: no ffmpeg install found for BSF check" | tee -a "$LOG"
+  echo "SKIP: no ffmpeg on this host can execute (ISA-incompatible) — BSF check deferred to target hw" | tee -a "$LOG"
+  SKIP=$((SKIP + 1))
 fi
 
 echo "" | tee -a "$LOG"
