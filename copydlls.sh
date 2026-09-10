@@ -96,16 +96,22 @@ while :; do
 done
 
 # 5) Portable config (mpv.conf/fonts.conf/ir.wav/user shaders) from the
-# project-local snapshot. Two copies on purpose:
-#   bin/          — flat files for the classic portable layout
-#   bin/mpv/      — mpv's win32 "global" config dir (exe_dir/mpv; the
-#                  fallback when no portable_config dir exists). The mpv.conf
-#                  lavfi-complex/~~/ paths resolve against this dir.
-CONF_SRC="/g/media-build/mpv-build/portable-conf"
-if [[ -d "$CONF_SRC" ]]; then
-	cp -u "$CONF_SRC"/* "$PREFIX/bin/" 2>/dev/null || true
-	mkdir -p "$PREFIX/bin/mpv"
-	cp -u "$CONF_SRC"/* "$PREFIX/bin/mpv/" 2>/dev/null || true
+# project-local snapshot — mpv installs ONLY. copydlls also serves the
+# ffmpeg prefixes; staging player config into an ffmpeg install would
+# pollute the release artifacts. Detect an mpv prefix by content
+# (mpv.exe / mpv.com / libmpv), not by path spelling.
+# Config files live ONLY in bin/mpv/ — mpv's win32 "global" config dir
+# (exe_dir/mpv, used when no portable_config dir exists next to the
+# exe) — NOT flat next to the exe. The mpv.conf lavfi-complex/~~/
+# paths resolve against this dir.
+if compgen -G "$PREFIX/bin/mpv.exe" >/dev/null \
+   || compgen -G "$PREFIX/bin/mpv.com" >/dev/null \
+   || compgen -G "$PREFIX/bin/libmpv*.dll" >/dev/null; then
+	CONF_SRC="/g/media-build/mpv-build/portable-conf"
+	if [[ -d "$CONF_SRC" ]]; then
+		mkdir -p "$PREFIX/bin/mpv"
+		cp -u "$CONF_SRC"/* "$PREFIX/bin/mpv/" 2>/dev/null || true
+	fi
 fi
 
 # 6) Sanity: forbidden AI-lib files must never appear (defense in depth)

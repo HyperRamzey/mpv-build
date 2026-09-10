@@ -166,17 +166,20 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 9. Check mpv.conf compatibility
+# 9. Check mpv.conf compatibility (config lives in the mpv/ config dir —
+# mpv's win32 "global" config dir exe_dir/mpv; no flat copy next to exe)
 echo "--- Config compatibility check ---" | tee -a "$LOG"
-if [ -f "mpv.conf" ]; then
-  if grep -qiE "gpu-next|d3d11|wasapi|dolbyvision|enhancement-layer" mpv.conf; then
+CONF=mpv/mpv.conf
+if [ -f "$CONF" ]; then
+  if grep -qiE "gpu-next|d3d11|wasapi|dolbyvision|enhancement-layer" "$CONF"; then
     echo "PASS: mpv.conf has gpu-next/d3d11/wasapi/DoVi config" | tee -a "$LOG"
     PASS=$((PASS + 1))
   else
     echo "WARN: mpv.conf present but missing key features" | tee -a "$LOG"
   fi
 else
-  echo "WARN: mpv.conf not found" | tee -a "$LOG"
+  echo "FAIL: mpv/mpv.conf not found (portable config not staged)" | tee -a "$LOG"
+  FAIL=$((FAIL + 1))
 fi
 
 # 10. AI-lib pollution guard: no ggml/whisper/llama artifacts may ship
