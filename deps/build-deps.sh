@@ -20,6 +20,43 @@ TIERS=(
 	"vulkan-headers vulkan-loader glslang shaderc spirv-cross opencl-headers opencl-icd-loader ffnvcodec libvpl libdovi vapoursynth wat4ff"
 )
 
+# --- post-build contract check ------------------------------------------------
+# mpv's meson hard-requires the .pc files below. The lua one is the sharp edge:
+# build-<t>.sh passes -Dlua=luajit, which takes mpv/meson.build:756's REQUIRED
+# dependency() path instead of the `required: false` auto path on :751 — so a
+# missing luajit.pc is a fatal configure error, not a silently disabled feature.
+#
+# WHY assert it here: a deps run can exit 0 with a .pc absent, and the symptom
+# only surfaces ~2h later in the mpv job as an opaque
+#   ERROR: Dependency "luajit" not found (tried pkg-config and cmake)
+# with a green deps job and no hint at the cause. Observed 2026-09-13 on 11700
+# + x64v4 only (mujs/lcms2/libarchive/iconv all resolved; luajit alone missing;
+# deps job green; same SHA built clean a week later). Check the contract in the
+# job that owns the prefix so the failure names the file.
+#
+# All 19 are present in every local deps-<t> prefix; keep this list in sync if
+# mpv's meson.build hard-dependency set changes.
+REQUIRED_PCS=(
+	luajit libplacebo libass iconv mujs lcms2 libarchive
+	zlib libjpeg zimg sdl2 rubberband libbluray uchardet
+	shaderc spirv-cross-c-shared libsixel vulkan openal
+)
+verify_prefix_pcs() {
+	local t="$1" pc f missing=()
+	for pc in "${REQUIRED_PCS[@]}"; do
+		[[ -f "$PREFIX/lib/pkgconfig/$pc.pc" ]] || missing+=("$pc.pc")
+	done
+	if (( ${#missing[@]} > 0 )); then
+		log "FATAL: target $t prefix missing required pkg-config file(s):"
+		for f in "${missing[@]}"; do
+			log "         $PREFIX/lib/pkgconfig/$f"
+		done
+		log "         mpv hard-requires these (see REQUIRED_PCS in build-deps.sh)"
+		exit 1
+	fi
+	log "OK $t: all ${#REQUIRED_PCS[@]} required .pc files present"
+}
+
 FAILED=()
 for t in "${TARGETS[@]}"; do
 	target_env "$t"
@@ -40,6 +77,7 @@ for t in "${TARGETS[@]}"; do
 	done
 	"$HERE/fix-static-pcs.sh" "$PREFIX"
 	"$HERE/sanitize-prefix.sh" "$PREFIX"
+	verify_prefix_pcs "$t"
 done
 
 log "=========== SUMMARY ==========="
