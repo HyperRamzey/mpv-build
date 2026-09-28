@@ -34,10 +34,20 @@ TIERS=(
 # deps job green; same SHA built clean a week later). Check the contract in the
 # job that owns the prefix so the failure names the file.
 #
-# All 19 are present in every local deps-<t> prefix; keep this list in sync if
+# libplacebo is deliberately NOT in this list: it is not a build-deps.sh recipe
+# at all. It is built per-target by mpv-build/build-libplacebo-<t>.sh, which
+# runs AFTER this script (locally as build-all.sh step 3, in CI as the very next
+# step of the deps job), so on any fresh prefix libplacebo.pc cannot exist yet
+# and asserting it here fails all 8 targets unconditionally. It did exactly that
+# on 2026-09-25 (dispatch) and 2026-09-27 (weekly), in both repos — and never
+# reproduced locally, because a local prefix still carries the libplacebo.pc
+# installed by the previous run. The libplacebo half of the contract is asserted
+# by build-libplacebo-<t>.sh, the step that can actually observe it.
+#
+# All 18 are present in every local deps-<t> prefix; keep this list in sync if
 # mpv's meson.build hard-dependency set changes.
 REQUIRED_PCS=(
-	luajit libplacebo libass iconv mujs lcms2 libarchive
+	luajit libass iconv mujs lcms2 libarchive
 	zlib libjpeg zimg sdl2 rubberband libbluray uchardet
 	shaderc spirv-cross-c-shared libsixel vulkan openal
 )

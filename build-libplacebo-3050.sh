@@ -35,6 +35,11 @@ rm -rf _build
 
 /clang64/bin/meson compile -C _build
 /clang64/bin/meson install -C _build
+# libplacebo.pc is one of mpv's hard-required .pc files, and the one half of
+# that contract build-deps.sh cannot check: it runs BEFORE this script, so on a
+# fresh prefix the file does not exist yet. Assert it here, where it exists.
+[ -f "$DEPS/lib/pkgconfig/libplacebo.pc" ] \
+  || { echo "ERROR: libplacebo.pc missing from $DEPS after meson install"; exit 1; }
 # static-first policy: libplacebo is embedded into consumers, never a DLL
 /g/media-build/deps-build/sanitize-prefix.sh "$DEPS"
 PL_API_VER=$(grep -oP '#define PL_API_VER \K\d+' "$DEPS/include/libplacebo/config.h" 2>/dev/null || echo "0")
