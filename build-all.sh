@@ -54,14 +54,19 @@ else
 fi
 
 # ==============================================================================
-# Step 1: git pull EVERYTHING — deps (~44 repos), mpv, ffmpeg, libplacebo
+# Step 1: bring EVERYTHING to upstream — deps (~44 repos), mpv, ffmpeg, libplacebo
 # ==============================================================================
 echo ""
-echo "=== STEP 1/6: git pull all sources ==="
+echo "=== STEP 1/6: bring all sources to upstream ==="
 /g/media-build/deps-build/pull-all.sh
-git -C /g/media-build/mpv-build/mpv pull --ff-only 2>/dev/null || echo "mpv: pull failed"
-git -C /g/media-build/ffmpeg-build/ffmpeg pull --ff-only 2>/dev/null || echo "ffmpeg: pull failed"
-git -C /g/media-build/mpv-build/libplacebo-src pull --ff-only 2>/dev/null || echo "libplacebo: pull failed"
+# mpv / FFmpeg / libplacebo: sync-repo.sh, not `pull --ff-only || echo failed`.
+# The old form reported the failure and carried on, so a moved default branch or
+# a force-pushed master left the tree on an old commit and the build shipped it
+# as if it were current. A fetch that cannot reach the remote now stops the run.
+SYNC=/g/media-build/deps-build/sync-repo.sh
+bash "$SYNC" -s /g/media-build/mpv-build/mpv https://github.com/mpv-player/mpv.git
+bash "$SYNC" /g/media-build/ffmpeg-build/ffmpeg https://github.com/FFmpeg/FFmpeg.git
+bash "$SYNC" -s /g/media-build/mpv-build/libplacebo-src https://code.videolan.org/videolan/libplacebo.git
 echo "--- heads ---"
 git -C /g/media-build/mpv-build/mpv log -1 --oneline
 git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline

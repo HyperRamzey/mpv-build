@@ -10,6 +10,10 @@ export DEBIAN_FRONTEND=noninteractive
 DEPS_ROOT="${DEPS_ROOT:-/g/media-build/deps-build}"
 SRC_ROOT="$DEPS_ROOT/src"
 BUILD_ROOT="$DEPS_ROOT/build"
+# callers (build-one.sh, build-deps.sh, pull-all.sh) each set HERE before
+# sourcing us and get the same value back; a bare `source common.sh` now also
+# resolves, which sync_src's "$HERE/sync-repo.sh" call depends on
+HERE="${HERE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 log() { printf '\033[1;36m[deps]\033[0m %s\n' "$*"; }
 die() {
@@ -128,31 +132,15 @@ head_of() { git -C "$SRC_ROOT/$1" rev-parse HEAD 2>/dev/null || echo unknown; }
 sync_src() {
 	local name="$1" url="$2" branch="${3:-}"
 	local dir="$SRC_ROOT/$name"
-	if [[ -d "$dir/.git" ]]; then
-		log "pull $name ($(git -C "$dir" rev-parse --abbrev-ref HEAD))"
-		if ! git -C "$dir" pull --ff-only >>"$DEPS_ROOT/logs/pull-$name.log" 2>&1; then
-			if git -C "$dir" status --porcelain 2>/dev/null | grep -q "^ M"; then
-				log "FATAL: $name pull conflicts with locally-mutated files — refusing to freeze at stale HEAD"
-				return 1
-			fi
-			log "WARN: ff-only pull failed for $name (clean tree) — keeping HEAD"
-		fi
-	else
-		log "clone $name"
-		mkdir -p "$SRC_ROOT"
-		if [[ -n "$branch" ]]; then
-			git clone --branch "$branch" "$url" "$dir" >>"$DEPS_ROOT/logs/pull-$name.log" 2>&1 ||
-				{
-					log "ERROR: clone failed for $name"
-					return 1
-				}
-		else
-			git clone "$url" "$dir" >>"$DEPS_ROOT/logs/pull-$name.log" 2>&1 ||
-				{
-					log "ERROR: clone failed for $name"
-					return 1
-				}
-		fi
+	# deps/sync-repo.sh owns the update. It replaces the `git pull --ff-only`
+	# this used to do, which answered every non-fast-forward case — detached
+	# HEAD (what a cache-restored clone often is), renamed default branch,
+	# force-pushed master, flaky fetch — with "keeping HEAD", and then the
+	# stamp cache recorded that stale commit as built. A dep could therefore
+	# ship weeks-old code with a green deps job and nothing but a WARN.
+	if ! "$HERE/sync-repo.sh" "$dir" "$url" "$branch"; then
+		log "FATAL: $name could not be brought up to upstream (message above names the cause)"
+		return 1
 	fi
 	# all sublibs enabled: recursive submodules where the recipe opts in
 	if [[ "${GIT_SUBMODULES:-0}" == "1" && -d "$dir/.git" ]]; then

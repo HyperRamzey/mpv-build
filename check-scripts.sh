@@ -6,7 +6,7 @@ SCRIPTS=(
   /g/media-build/mpv-build/build-libplacebo-zn3.sh /g/media-build/mpv-build/build-libplacebo-zn2.sh /g/media-build/mpv-build/build-libplacebo-11700.sh /g/media-build/mpv-build/build-libplacebo-3050.sh /g/media-build/mpv-build/build-libplacebo-14600.sh /g/media-build/mpv-build/build-libplacebo-x64v2.sh /g/media-build/mpv-build/build-libplacebo-x64v3.sh /g/media-build/mpv-build/build-libplacebo-x64v4.sh
   /g/media-build/mpv-build/copydlls.sh /g/media-build/mpv-build/smoke_test.sh
   /g/media-build/ffmpeg-build/build-zn3.sh /g/media-build/ffmpeg-build/build-zn2.sh /g/media-build/ffmpeg-build/build-11700.sh /g/media-build/ffmpeg-build/build-3050.sh /g/media-build/ffmpeg-build/build-14600.sh /g/media-build/ffmpeg-build/build-x64v2.sh /g/media-build/ffmpeg-build/build-x64v3.sh /g/media-build/ffmpeg-build/build-x64v4.sh
-  /g/media-build/deps-build/build-deps.sh /g/media-build/deps-build/build-one.sh /g/media-build/deps-build/common.sh /g/media-build/deps-build/pull-all.sh /g/media-build/deps-build/fix-static-pcs.sh /g/media-build/deps-build/sanitize-prefix.sh
+  /g/media-build/deps-build/build-deps.sh /g/media-build/deps-build/build-one.sh /g/media-build/deps-build/common.sh /g/media-build/deps-build/pull-all.sh /g/media-build/deps-build/sync-repo.sh /g/media-build/deps-build/fix-static-pcs.sh /g/media-build/deps-build/sanitize-prefix.sh
 )
 rc=0
 for f in "${SCRIPTS[@]}"; do

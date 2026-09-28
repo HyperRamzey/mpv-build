@@ -13,10 +13,14 @@ DEPS=/g/media-build/deps-build/deps-x64v3
 LOG=/g/media-build/mpv-build/configure-libplacebo-x64v3.log
 OPT="-O3 -march=haswell -mtune=haswell -mprefer-vector-width=256 -fvectorize -fslp-vectorize -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fno-trapping-math"
 
-if [ ! -d "$SRC/.git" ]; then
-  git clone https://code.videolan.org/videolan/libplacebo.git "$SRC"
-fi
-cd "$SRC"; git pull --ff-only 2>/dev/null || true
+# Upstream to latest on every run. The old `git pull --ff-only || true` was
+# silent about the two ways it fails here — a cache-restored detached HEAD and
+# any non-fast-forward upstream move — so libplacebo could be compiled from a
+# commit weeks old with nothing in the log but a swallowed exit status. -s: the
+# glad/fast_float/jinja/Vulkan-Headers submodules are required by meson setup.
+bash /g/media-build/deps-build/sync-repo.sh -s "$SRC" \
+  https://code.videolan.org/videolan/libplacebo.git
+cd "$SRC"
 export PATH="/clang64/bin:$PATH"
 export CMAKE_PREFIX_PATH="$DEPS"
 export PKG_CONFIG_PATH="$DEPS/lib/pkgconfig:/clang64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"

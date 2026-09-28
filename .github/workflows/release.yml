@@ -256,23 +256,16 @@ jobs:
           set -euo pipefail
           git config --global core.autocrlf false
           git config --global core.eol lf
-          sync_repo() {
-            local dir="$1" url="$2"
-            if [[ -d "$dir/.git" ]]; then
-              git -C "$dir" pull --ff-only 2>/dev/null \
-                || echo "$(basename "$dir"): pull failed"
-            else
-              rm -rf "$dir"
-              git clone "$url" "$dir"
-            fi
-          }
-          sync_repo /g/media-build/mpv-build/mpv "$MPV_REPO"
-          sync_repo /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
-          sync_repo /g/media-build/mpv-build/libplacebo-src "$PLACEBO_REPO"
-          # libplacebo needs its 3rdparty submodules (glad python package,
-          # fast_float, jinja, markupsafe, Vulkan-Headers) for meson setup
-          git -C /g/media-build/mpv-build/libplacebo-src submodule update \
-            --init --recursive
+          # deps/sync-repo.sh is the single upstream-sync primitive: it re-attaches
+          # a cache-restored detached HEAD, adopts a renamed default branch and
+          # follows a force-pushed master, all of which `git pull --ff-only` cannot
+          # do — it used to answer them with "|| echo pull failed" and leave the
+          # clone stale, so the whole run (and the src cache saved from it) was
+          # built on an old commit. A fetch failure is now fatal, not "no news".
+          SYNC=/g/media-build/deps-build/sync-repo.sh
+          bash "$SYNC" -s /g/media-build/mpv-build/mpv "$MPV_REPO"
+          bash "$SYNC" /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
+          bash "$SYNC" -s /g/media-build/mpv-build/libplacebo-src "$PLACEBO_REPO"
           echo '--- heads ---'
           git -C /g/media-build/mpv-build/mpv log -1 --oneline
           git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline
@@ -427,11 +420,15 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: g/media-build/mpv-build
-      - name: Materialize ffmpeg-build from in-repo copy
+      - name: Materialize deps-build + ffmpeg-build from in-repo copies
         shell: bash
         run: |
           set -euo pipefail
           w="$(cygpath -u "$GITHUB_WORKSPACE")/g/media-build"
+          # deps/ is needed here for sync-repo.sh, which the FFmpeg sync step
+          # runs: the ffmpeg job restores deps-<target> from cache but must not
+          # rely on that cache to also carry the build scripts
+          cp -r "$w/mpv-build/deps" "$w/deps-build"
           cp -r "$w/mpv-build/ffmpeg-scripts" "$w/ffmpeg-build"
       - name: "Map G: drive"
         shell: pwsh
@@ -499,15 +496,20 @@ jobs:
           key: dpfx-${{ matrix.target }}-${{ env.CACHE_RUN }}
           restore-keys: |
             dpfx-${{ matrix.target }}-
-      - name: Ensure FFmpeg clone exists (cache-miss fallback)
+      - name: Bring the FFmpeg clone to latest upstream master
         shell: msys2 {0}
         run: |
           set -euo pipefail
           git config --global core.autocrlf false
           git config --global core.eol lf
-          if [ ! -d /g/media-build/ffmpeg-build/ffmpeg/.git ]; then
-            git clone "$FFMPEG_REPO" /g/media-build/ffmpeg-build/ffmpeg
-          fi
+          # This job used to clone FFmpeg only when the src cache missed and
+          # never updated it otherwise, so a stale restore-keys hit (evicted
+          # or never-saved src- cache) would compile and release weeks-old
+          # FFmpeg with a green job. Sync unconditionally, here, where the
+          # build consumes it.
+          bash /g/media-build/deps-build/sync-repo.sh \
+            /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
+          git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline
       - name: Build FFmpeg (build-all.sh step 4)
         shell: msys2 {0}
         run: |
@@ -669,15 +671,17 @@ jobs:
           key: ffinst-${{ matrix.target }}-${{ env.CACHE_RUN }}
           restore-keys: |
             ffinst-${{ matrix.target }}-
-      - name: Ensure mpv clone exists (cache-miss fallback)
+      - name: Bring the mpv clone to latest upstream master
         shell: msys2 {0}
         run: |
           set -euo pipefail
           git config --global core.autocrlf false
           git config --global core.eol lf
-          if [ ! -d /g/media-build/mpv-build/mpv/.git ]; then
-            git clone "$MPV_REPO" /g/media-build/mpv-build/mpv
-          fi
+          # same reasoning as the ffmpeg job: never build a tree the restore
+          # happened to hand us, always build upstream's tip
+          bash /g/media-build/deps-build/sync-repo.sh \
+            /g/media-build/mpv-build/mpv "$MPV_REPO"
+          git -C /g/media-build/mpv-build/mpv log -1 --oneline
       - name: Build mpv (build-all.sh step 5)
         shell: msys2 {0}
         run: |
