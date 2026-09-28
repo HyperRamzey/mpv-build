@@ -186,6 +186,25 @@ if ((SUBMODULES)) && [[ -z "$TAG" ]] && [[ -f "$DIR/.gitmodules" ]]; then
 		git -C "$DIR" submodule update --init --recursive --force ||
 		die "$(name): submodule update failed after 3 tries"
 fi
+
+# Self-check, and the reason this script exists: prove the tree being handed back
+# IS the upstream tip, not merely one that a pull was attempted on. A pinned
+# branch that upstream renamed dies here too, so "latest master" can never
+# silently become "latest something-else".
+if [[ -n "$TAG" ]]; then
+	WANT_REF="refs/tags/$TAG"
+else
+	WANT_REF="refs/remotes/origin/$BRANCH"
+fi
+GOT=$(git -C "$DIR" rev-parse HEAD 2>/dev/null || echo none)
+# ^{commit} matters for tags: refs/tags/v1 on an ANNOTATED tag is the tag
+# object, whose sha is not what HEAD checks out — comparing raw would abort
+# every pinned-tag recipe (openapv) on a pin that is perfectly correct
+EXP=$(git -C "$DIR" rev-parse "$WANT_REF^{commit}" 2>/dev/null || echo none)
+if [[ "$GOT" != "$EXP" ]]; then
+	die "$(name): HEAD $GOT is not $WANT_REF ($EXP) after checkout — refusing to return a tree that is not upstream's tip"
+fi
+log "tip $(name) ${TAG:-$BRANCH}@${GOT:0:12} == ${WANT_REF}"
 if ((STASHED)); then
 	if ! git -C "$DIR" stash pop -q; then
 		# A conflicted tree would wedge every later run too (the next stash

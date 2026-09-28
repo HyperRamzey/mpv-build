@@ -73,15 +73,27 @@ for t in "${TARGETS[@]}"; do
 	log "===== TARGET $t — $TARGET_CPU ====="
 	for tier in "${TIERS[@]}"; do
 		for lib in $tier; do
-			if ! "$HERE/build-one.sh" "$t" "$lib"; then
-				# best-effort libs don't kill the run
-				if grep -q '^BEST_EFFORT=1' "$HERE/recipes/$lib.sh" 2>/dev/null; then
-					log "WARN: best-effort '$lib' failed — downstream configure will auto-disable it"
-					FAILED+=("$lib@$t(BEST-EFFORT)")
-				else
-					log "FATAL: required '$lib' failed on target $t"
-					exit 1
-				fi
+			rc=0
+			"$HERE/build-one.sh" "$t" "$lib" || rc=$?
+			if (( rc == 0 )); then
+				continue
+			fi
+			if (( rc == 2 )); then
+				# build-one.sh could not reach upstream for this lib. Fatal even
+				# when the lib is BEST_EFFORT: an optional build failure is
+				# tolerated downstream by auto-disabling the feature, but a source
+				# that could not be refreshed means the tree is stale or missing,
+				# and nothing downstream can tell the difference.
+				log "FATAL: '$lib' could not be synced to upstream on target $t"
+				exit 1
+			fi
+			# best-effort libs don't kill the run
+			if grep -q '^BEST_EFFORT=1' "$HERE/recipes/$lib.sh" 2>/dev/null; then
+				log "WARN: best-effort '$lib' failed — downstream configure will auto-disable it"
+				FAILED+=("$lib@$t(BEST-EFFORT)")
+			else
+				log "FATAL: required '$lib' failed on target $t"
+				exit 1
 			fi
 		done
 	done

@@ -263,10 +263,10 @@ jobs:
           # clone stale, so the whole run (and the src cache saved from it) was
           # built on an old commit. A fetch failure is now fatal, not "no news".
           SYNC=/g/media-build/deps-build/sync-repo.sh
-          bash "$SYNC" -s /g/media-build/mpv-build/mpv "$MPV_REPO"
-          bash "$SYNC" /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
-          bash "$SYNC" -s /g/media-build/mpv-build/libplacebo-src "$PLACEBO_REPO"
-          echo '--- heads ---'
+          bash "$SYNC" -s /g/media-build/mpv-build/mpv "$MPV_REPO" master
+          bash "$SYNC" /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO" master
+          bash "$SYNC" -s /g/media-build/mpv-build/libplacebo-src "$PLACEBO_REPO" master
+          echo '--- heads (must be origin tip) ---'
           git -C /g/media-build/mpv-build/mpv log -1 --oneline
           git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline
           git -C /g/media-build/mpv-build/libplacebo-src log -1 --oneline
@@ -394,6 +394,37 @@ jobs:
           set -euo pipefail
           export MSYSTEM=CLANG64
           bash /g/media-build/mpv-build/build-libplacebo-${{ matrix.target }}.sh
+      - name: "Record libplacebo + libdovi provenance (${{ matrix.target }})"
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          mkdir -p prov
+          LP=/g/media-build/mpv-build/libplacebo-src
+          LD=/g/media-build/deps-build/src/dovi_tool
+          # both are built into deps-<target> by this job, so this is the last
+          # point where "is the source we compiled the tip?" is still provable
+          lpsha=$(git -C "$LP" rev-parse HEAD)
+          test "$lpsha" = "$(git -C "$LP" rev-parse refs/remotes/origin/master)" \
+            || { echo "FATAL: libplacebo HEAD $lpsha != origin/master"; exit 1; }
+          ldsha=$(git -C "$LD" rev-parse HEAD)
+          # dovi_tool's mainline is `main` (pinned in deps/recipes/libdovi.sh)
+          test "$ldsha" = "$(git -C "$LD" rev-parse refs/remotes/origin/main)" \
+            || { echo "FATAL: libdovi HEAD $ldsha != origin/main"; exit 1; }
+          printf 'libplacebo target=%s branch=master commit=%s date=%s subject=%s\n' \
+            '${{ matrix.target }}' "$lpsha" \
+            "$(git -C "$LP" log -1 --format=%cs)" \
+            "$(git -C "$LP" log -1 --format=%s)" > "prov/libplacebo-${{ matrix.target }}.txt"
+          printf 'libdovi target=%s branch=main commit=%s date=%s subject=%s\n' \
+            '${{ matrix.target }}' "$ldsha" \
+            "$(git -C "$LD" log -1 --format=%cs)" \
+            "$(git -C "$LD" log -1 --format=%s)" > "prov/libdovi-${{ matrix.target }}.txt"
+          cat prov/libplacebo-${{ matrix.target }}.txt prov/libdovi-${{ matrix.target }}.txt
+      - name: Upload deps provenance
+        uses: actions/upload-artifact@v6
+        with:
+          name: prov-deps-${{ matrix.target }}
+          path: prov
+          retention-days: 30
       - name: Upload dependency logs on failure
         if: failure()
         uses: actions/upload-artifact@v6
@@ -506,10 +537,34 @@ jobs:
           # never updated it otherwise, so a stale restore-keys hit (evicted
           # or never-saved src- cache) would compile and release weeks-old
           # FFmpeg with a green job. Sync unconditionally, here, where the
-          # build consumes it.
-          bash /g/media-build/deps-build/sync-repo.sh \
-            /g/media-build/ffmpeg-build/ffmpeg "$FFMPEG_REPO"
-          git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline
+          # build consumes it, and pin the branch by name: FFmpeg's mainline
+          # is `master` and sync-repo.sh dies if upstream renames it.
+          FF=/g/media-build/ffmpeg-build/ffmpeg
+          bash /g/media-build/deps-build/sync-repo.sh "$FF" "$FFMPEG_REPO" master
+          git -C "$FF" log -1 --oneline
+      - name: "Record FFmpeg provenance (${{ matrix.target }})"
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          FF=/g/media-build/ffmpeg-build/ffmpeg
+          sha=$(git -C "$FF" rev-parse HEAD)
+          # the tree that is about to be built MUST be the tip; if it is not,
+          # the release would claim to be current while shipping an old commit
+          test "$sha" = "$(git -C "$FF" rev-parse refs/remotes/origin/master)" \
+            || { echo "FATAL: FFmpeg HEAD $sha != origin/master — refusing to build"; exit 1; }
+          mkdir -p prov
+          printf 'ffmpeg target=%s branch=master commit=%s date=%s subject=%s\n' \
+            '${{ matrix.target }}' "$sha" \
+            "$(git -C "$FF" log -1 --format=%cs)" \
+            "$(git -C "$FF" log -1 --format=%s)" \
+            > "prov/ffmpeg-${{ matrix.target }}.txt"
+          cat "prov/ffmpeg-${{ matrix.target }}.txt"
+      - name: Upload FFmpeg provenance
+        uses: actions/upload-artifact@v6
+        with:
+          name: prov-ffmpeg-${{ matrix.target }}
+          path: prov
+          retention-days: 30
       - name: Build FFmpeg (build-all.sh step 4)
         shell: msys2 {0}
         run: |
@@ -679,9 +734,30 @@ jobs:
           git config --global core.eol lf
           # same reasoning as the ffmpeg job: never build a tree the restore
           # happened to hand us, always build upstream's tip
-          bash /g/media-build/deps-build/sync-repo.sh \
-            /g/media-build/mpv-build/mpv "$MPV_REPO"
-          git -C /g/media-build/mpv-build/mpv log -1 --oneline
+          MP=/g/media-build/mpv-build/mpv
+          bash /g/media-build/deps-build/sync-repo.sh "$MP" "$MPV_REPO" master
+          git -C "$MP" log -1 --oneline
+      - name: "Record mpv provenance (${{ matrix.target }})"
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          MP=/g/media-build/mpv-build/mpv
+          sha=$(git -C "$MP" rev-parse HEAD)
+          test "$sha" = "$(git -C "$MP" rev-parse refs/remotes/origin/master)" \
+            || { echo "FATAL: mpv HEAD $sha != origin/master — refusing to build"; exit 1; }
+          mkdir -p prov
+          printf 'mpv target=%s branch=master commit=%s date=%s subject=%s\n' \
+            '${{ matrix.target }}' "$sha" \
+            "$(git -C "$MP" log -1 --format=%cs)" \
+            "$(git -C "$MP" log -1 --format=%s)" \
+            > "prov/mpv-${{ matrix.target }}.txt"
+          cat "prov/mpv-${{ matrix.target }}.txt"
+      - name: Upload mpv provenance
+        uses: actions/upload-artifact@v6
+        with:
+          name: prov-mpv-${{ matrix.target }}
+          path: prov
+          retention-days: 30
       - name: Build mpv (build-all.sh step 5)
         shell: msys2 {0}
         run: |
@@ -761,6 +837,27 @@ jobs:
         with:
           pattern: "mpv-*"
           path: artifacts
+      - name: Download provenance records
+        uses: actions/download-artifact@v6
+        with:
+          pattern: "prov-*"
+          path: prov
+          merge-multiple: true
+      - name: Compose provenance.txt
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lines = @(
+            '# Upstream commits this release was built from',
+            '',
+            'component  target  branch  commit  date  subject',
+            ''
+          )
+          foreach ($f in Get-ChildItem prov -Filter *.txt | Sort-Object Name) {
+            $lines += (Get-Content $f.FullName -Raw).Trim()
+          }
+          $lines | Set-Content prov/provenance.txt
+          Get-Content prov/provenance.txt
       - name: Resolve release tag
         id: rtag
         shell: pwsh
@@ -790,6 +887,9 @@ jobs:
               -DestinationPath $zip -CompressionLevel Optimal
             Write-Host "packed $zip"
           }
+          # the exact upstream commits (mpv, libplacebo, libdovi) this release
+          # was built from, so "built from latest master" is checkable later
+          Copy-Item prov/provenance.txt dist/provenance.txt
           Get-ChildItem dist | Format-Table Name, Length
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -836,6 +936,11 @@ jobs:
 
             Companion FFmpeg builds (ffmpeg/ffplay/ffprobe, incl. Apple
             `aac_at`) release separately at HyperRamzey/ffmpeg-releases.
+
+            Every run syncs `mpv` (master), `libplacebo` (master) and
+            `libdovi`/dovi_tool (main) to their upstream tip and **refuses to
+            build** if the checked-out tree is not `origin/<branch>`; the exact
+            commits are listed in the `provenance.txt` asset.
           generate_release_notes: true
           make_latest: true
           files: dist/*.zip

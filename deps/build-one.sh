@@ -21,7 +21,14 @@ LOGF="$DEPS_ROOT/logs/${NAME}-${TARGET}.log"
 SRCD="$SRC_ROOT/$NAME"
 if [[ "${SKIP_SYNC:-0}" != "1" ]]; then
 	if [[ -n "${GIT_URL:-}" ]]; then
-		sync_src "$NAME" "$GIT_URL" "${GIT_BRANCH:-}"
+		# exit 2 = "could not reach upstream", which build-deps.sh treats as
+		# fatal even for a BEST_EFFORT lib: not being able to fetch the newest
+		# source is not the same as an optional build failing, and building a
+		# stale or missing tree is exactly what must never happen silently.
+		if ! sync_src "$NAME" "$GIT_URL" "${GIT_BRANCH:-}"; then
+			die "$NAME: could not be synced to upstream (exit 2) — refusing to build a stale tree"
+			exit 2
+		fi
 	elif [[ -n "${SRC_URL:-}" ]]; then
 		if [[ ! -f "$SRCD/.tarball-done" ]]; then
 			log "fetch $NAME (release tarball — no usable upstream git)"

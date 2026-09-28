@@ -64,9 +64,13 @@ echo "=== STEP 1/6: bring all sources to upstream ==="
 # a force-pushed master left the tree on an old commit and the build shipped it
 # as if it were current. A fetch that cannot reach the remote now stops the run.
 SYNC=/g/media-build/deps-build/sync-repo.sh
-bash "$SYNC" -s /g/media-build/mpv-build/mpv https://github.com/mpv-player/mpv.git
-bash "$SYNC" /g/media-build/ffmpeg-build/ffmpeg https://github.com/FFmpeg/FFmpeg.git
-bash "$SYNC" -s /g/media-build/mpv-build/libplacebo-src https://code.videolan.org/videolan/libplacebo.git
+# the branch is named, not left to origin/HEAD: these four are wanted on their
+# newest mainline every run, and if upstream renames one the build must stop with
+# a message rather than quietly following the new default. sync-repo.sh asserts
+# HEAD == origin/<branch> before returning, and dies otherwise.
+bash "$SYNC" -s /g/media-build/mpv-build/mpv https://github.com/mpv-player/mpv.git master
+bash "$SYNC" /g/media-build/ffmpeg-build/ffmpeg https://github.com/FFmpeg/FFmpeg.git master
+bash "$SYNC" -s /g/media-build/mpv-build/libplacebo-src https://code.videolan.org/videolan/libplacebo.git master
 echo "--- heads ---"
 git -C /g/media-build/mpv-build/mpv log -1 --oneline
 git -C /g/media-build/ffmpeg-build/ffmpeg log -1 --oneline

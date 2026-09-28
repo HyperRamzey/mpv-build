@@ -2,6 +2,11 @@
 # NOTE: crate dir renamed libdovi/ -> dolby_vision/ upstream; cargo-c builds
 # header + pkgconfig into dist/ automatically.
 GIT_URL="https://github.com/quietvoid/dovi_tool"
+# Pinned to the mainline by name, not left to origin/HEAD: this crate is wanted
+# on the newest dolby_vision every run (mpv DoVi P7 FEL depends on it), and an
+# upstream rename must stop the build with a message instead of quietly moving
+# the pin. dovi_tool's mainline is `main`; there is no `master`.
+GIT_BRANCH="main"
 GIT_SUBMODULES=0
 BUILD() {
 	local d="$SRC_ROOT/$NAME/dolby_vision"
