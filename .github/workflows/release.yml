@@ -949,4 +949,8 @@ jobs:
             commits are listed in the `provenance.txt` asset.
           generate_release_notes: true
           make_latest: true
-          files: dist/*.zip
+          # provenance.txt is NOT a .zip — listing only dist/*.zip silently
+          # dropped it from the release while every step reported success
+          files: |
+            dist/*.zip
+            dist/provenance.txt
