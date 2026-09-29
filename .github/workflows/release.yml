@@ -400,7 +400,13 @@ jobs:
           set -euo pipefail
           mkdir -p prov
           LP=/g/media-build/mpv-build/libplacebo-src
-          LD=/g/media-build/deps-build/src/dovi_tool
+          # NB: the source dir is named after the RECIPE, so libdovi -> src/libdovi,
+          # even though the repo it clones is quietvoid/dovi_tool. build-one.sh
+          # uses $SRC_ROOT/$NAME where NAME is the recipe file's name.
+          LD=/g/media-build/deps-build/src/libdovi
+          for d in "$LP" "$LD"; do
+            [ -d "$d/.git" ] || { echo "FATAL: $d is not a git clone — cannot prove provenance"; exit 1; }
+          done
           # both are built into deps-<target> by this job, so this is the last
           # point where "is the source we compiled the tip?" is still provable
           lpsha=$(git -C "$LP" rev-parse HEAD)
