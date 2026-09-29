@@ -616,11 +616,25 @@ jobs:
         with:
           path: g/media-build/ffmpeg-build/${{ matrix.install_dir }}
           key: ffinst-${{ matrix.target }}-${{ env.CACHE_RUN }}
-      - name: Upload FFmpeg build artifact
+      - name: "Package FFmpeg bundle (${{ matrix.target }})"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bin = 'g/media-build/ffmpeg-build/${{ matrix.install_dir }}/bin'
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $zip = "dist/ffmpeg-${{ matrix.target }}.zip"
+          Compress-Archive -Path (Join-Path $bin '*') -DestinationPath $zip `
+            -CompressionLevel Optimal
+          $len = (Get-Item $zip).Length
+          Write-Host "packed $zip ($len bytes)"
+          if ($len -lt 1MB) {
+            throw "ffmpeg-${{ matrix.target }}.zip is only $len bytes - ffmpeg.exe missing?"
+          }
+      - name: Upload FFmpeg bundle
         uses: actions/upload-artifact@v6
         with:
           name: ffmpeg-${{ matrix.target }}
-          path: g/media-build/ffmpeg-build/${{ matrix.install_dir }}/bin
+          path: dist/ffmpeg-${{ matrix.target }}.zip
           retention-days: 30
       - name: Upload FFmpeg logs on failure
         if: failure()
@@ -810,11 +824,27 @@ jobs:
           set -euo pipefail
           bash /g/media-build/mpv-build/smoke_test.sh \
             "/g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin"
-      - name: Upload mpv build artifact
+      - name: "Package mpv bundle (${{ matrix.target }})"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bin = 'g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin'
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $zip = "dist/mpv-${{ matrix.target }}.zip"
+          Compress-Archive -Path (Join-Path $bin '*') -DestinationPath $zip `
+            -CompressionLevel Optimal
+          $len = (Get-Item $zip).Length
+          Write-Host "packed $zip ($len bytes)"
+          # a bundle without the binary is worse than no bundle: it looks like a
+          # successful release and downloads as a 37 KB config-only zip
+          if ($len -lt 1MB) {
+            throw "mpv-${{ matrix.target }}.zip is only $len bytes - mpv.exe missing?"
+          }
+      - name: Upload mpv bundle
         uses: actions/upload-artifact@v6
         with:
           name: mpv-${{ matrix.target }}
-          path: g/media-build/mpv-build/${{ matrix.mpv_dir }}/bin
+          path: dist/mpv-${{ matrix.target }}.zip
           retention-days: 30
       - name: Upload mpv logs on failure
         if: failure()
@@ -843,6 +873,7 @@ jobs:
         with:
           pattern: "mpv-*"
           path: artifacts
+          merge-multiple: true
       - name: Download provenance records
         uses: actions/download-artifact@v6
         with:
@@ -880,18 +911,23 @@ jobs:
             "build-$stamp"
           }
           "tag=$tag" >> $env:GITHUB_OUTPUT
-      - name: Zip per-target portable bundles
+      - name: Stage release assets
         shell: pwsh
         env:
           RELEASE_TAG: ${{ steps.rtag.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force dist | Out-Null
-          foreach ($dir in Get-ChildItem artifacts -Directory) {
-            $zip = "dist/$($dir.Name)-$env:RELEASE_TAG.zip"
-            Compress-Archive -Path (Join-Path $dir.FullName '*') `
-              -DestinationPath $zip -CompressionLevel Optimal
-            Write-Host "packed $zip"
+          # the bundles are already zipped by the build jobs, so this only
+          # collects them — the previous version re-zipped whatever
+          # directories the download happened to create, and on a single-target
+          # run that was the portable-conf/ folder: a 37 KB "mpv" release with
+          # no mpv.exe in it
+          $zips = Get-ChildItem artifacts -Recurse -Filter *.zip
+          if (-not $zips) { throw "no bundles found under artifacts/" }
+          foreach ($z in $zips) {
+            Copy-Item $z.FullName (Join-Path dist $z.Name)
+            Write-Host "staged $($z.Name) ($($z.Length) bytes)"
           }
           # the exact upstream commits (mpv, libplacebo, libdovi) this release
           # was built from, so "built from latest master" is checkable later
