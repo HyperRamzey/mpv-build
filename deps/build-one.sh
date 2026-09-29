@@ -69,15 +69,27 @@ if [[ "${FORCE:-0}" != "1" && -f "$STAMP" && "$(cat "$STAMP" 2>/dev/null)" == "$
 	exit 0
 fi
 
-# --- build (subshell + set -e => any step failure kills BUILD) ---------------
+# --- build (unguarded subshell + ERR trap => a failed step IS a failed build) -
 log "BUILD $NAME @$TARGET ($TARGET_CPU) -> $(basename "$PREFIX")"
 rm -rf "$BUILD_DIR/$NAME"
 mkdir -p "$BUILD_DIR/$NAME"
 START=$(date +%s)
-if ! ( set -e; cd /; BUILD ); then
-	rm -f "$STAMP"
-	die "$NAME@$TARGET FAILED ($(($(date +%s)-START))s) — see logs/${NAME}-${TARGET}.log"
-fi
+# `if ! ( set -e; ... )` looks correct and is not: bash disables errexit for
+# every command inside a compound command that runs in a tested context, so
+# BUILD's own `set -e` was a no-op and a failing make was reported as a
+# successful build. That is how luajit lost luajit.pc on 11700/x64v4 and the
+# deps job stayed green — twice (2026-09-13, 2026-09-29) — with the only
+# symptom a missing .pc discovered much later, in the mpv job.
+#
+# So the subshell runs unguarded (where set -e is honoured) and an ERR trap
+# does what the old `if` did: drop the stamp so the next run retries, and name
+# the log. A recipe that reaches its last command with an earlier failure still
+# has a zero status, so the trap alone cannot see that — that is why the
+# recipes that install something the build depends on now assert the artefact
+# exists (see recipes/luajit.sh).
+trap 'rc=$?; rm -f "$STAMP"; trap - ERR; log "$NAME@$TARGET FAILED after $(($(date +%s) - START))s (rc=$rc) — see logs/${NAME}-${TARGET}.log"; exit $rc' ERR
+( set -e; cd /; BUILD )
+trap - ERR
 
 echo "$FP" > "$STAMP"
 "$HERE/fix-static-pcs.sh" "$PREFIX" >>"$LOGF" 2>&1 || true
