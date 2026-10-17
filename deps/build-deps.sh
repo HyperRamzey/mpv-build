@@ -87,6 +87,23 @@ for t in "${TARGETS[@]}"; do
 				log "FATAL: '$lib' could not be synced to upstream on target $t"
 				exit 1
 			fi
+			# One retry absorbs rare nondeterministic toolchain failures — e.g.
+			# clang 23.1.3's frontend ICE parsing openal alc/backends/wave.cpp
+			# (2026-10-17: 11700 + 3050 legs crashed; the same revision, flags
+			# and compiler built that TU clean on x64v2/x64v3/zn2 in the same
+			# run). build-one.sh removes its stamp on failure, so the retry
+			# re-runs configure + ninja and only missing objects recompile.
+			# Genuine breakage fails both attempts; only the second rc is judged.
+			log "RETRY: '$lib'@$t failed (rc=$rc) — one clean retry"
+			rc=0
+			"$HERE/build-one.sh" "$t" "$lib" || rc=$?
+			if (( rc == 0 )); then
+				continue
+			fi
+			if (( rc == 2 )); then
+				log "FATAL: '$lib' could not be synced to upstream on target $t (retry)"
+				exit 1
+			fi
 			# best-effort libs don't kill the run
 			if grep -q '^BEST_EFFORT=1' "$HERE/recipes/$lib.sh" 2>/dev/null; then
 				log "WARN: best-effort '$lib' failed — downstream configure will auto-disable it"
