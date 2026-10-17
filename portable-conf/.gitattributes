@@ -1,0 +1,10 @@
+# Portable config snapshot ships byte-identical to the live bundle
+# (mpv.conf 6DA65777…, nlmeans.glsl 25EAFBF1…, ir.wav 4CB18567…).
+# Without a rule here, the CI Windows checkout (core.autocrlf=true)
+# converted LF->CRLF for the text files, so release zips carried +1 CR
+# per line (mpv.conf +323b, nlmeans.glsl +2723b, fonts.conf +103b,
+# CfL_Prediction.glsl +363b, SSimDownscaler.glsl +214b) while the binary
+# ir.wav was untouched. `-text` pins the committed bytes on every
+# checkout (CI included) and keeps any future binary safe from text
+# heuristics.
+* -text
