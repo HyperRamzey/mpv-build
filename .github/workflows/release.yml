@@ -431,8 +431,8 @@ jobs:
           name: prov-deps-${{ matrix.target }}
           path: prov
           retention-days: 30
-      - name: Upload dependency logs on failure
-        if: failure()
+      - name: Upload dependency logs (always)
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: logs-deps-${{ matrix.target }}

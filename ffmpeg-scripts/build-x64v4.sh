@@ -26,6 +26,15 @@ NVCCFLAGS="--cuda-gpu-arch=sm_75 -Xclang -target-feature -Xclang +ptx63 -O3"
 # Clean the output prefix FIRST: never ship stale DLLs (old libplacebo etc.)
 rm -rf "$PREFIX"
 if [[ -f ffbuild/config.mak ]]; then make clean; fi  # fresh clones have no config yet
+# liblcevc-dec comes from a BEST_EFFORT deps recipe; if that build failed,
+# fall back to configure-without-lcevc instead of hard-failing (ffmpeg
+# treats an explicitly enabled library as a hard requirement). The deps
+# job already warns; its logs are uploaded unconditionally.
+LCEVC_FLAG=""
+if pkg-config --exists 'lcevc_dec >= 4.0.0'; then
+	LCEVC_FLAG="--enable-liblcevc-dec"
+fi
+
 echo "=== FFmpeg configure (skylake-avx512 / sm_120a) ==="
 ./configure \
 	--prefix="$PREFIX" \
@@ -40,7 +49,7 @@ echo "=== FFmpeg configure (skylake-avx512 / sm_120a) ==="
 	--nvccflags="$NVCCFLAGS" \
 	--enable-opencl --enable-vulkan --enable-libplacebo --enable-libvpl \
 	--enable-libx264 --enable-libx265 --enable-libxvid --enable-libvpx \
---enable-libvvenc --enable-avisynth --enable-liblcevc-dec --enable-liboapv --enable-libsvtjpegxs --enable-libuavs3d --enable-libxevd --enable-libxeve --enable-libsnappy --enable-libqrencode --enable-vapoursynth \
+--enable-libvvenc --enable-avisynth $LCEVC_FLAG --enable-liboapv --enable-libsvtjpegxs --enable-libuavs3d --enable-libxevd --enable-libxeve --enable-libsnappy --enable-libqrencode --enable-vapoursynth \
 	--enable-libaom --enable-libdav1d --enable-libsvtav1 \
 	--enable-libopenh264 --enable-libfdk-aac --enable-libmp3lame \
 	--enable-libopus --enable-libvorbis --enable-libspeex \
